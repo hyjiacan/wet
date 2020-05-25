@@ -87,7 +87,7 @@ function renderFor(attributes, children, context) {
     }
     result.push(parseChildren(children, itemContext))
   }
-  return result
+  return result.join('')
 }
 
 function renderIf(attributes, children, context) {
