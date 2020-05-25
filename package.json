@@ -1,0 +1,9 @@
+{
+  "name": "jst",
+  "version": "0.1.0",
+  "description": "Simple Javascript Template Engine",
+  "main": "src/engine.js",
+  "repository": "https://gitee.com/hyjiacan/jst.git",
+  "author": "hyjiacan <hyjiacan@163.com>",
+  "license": "MIT"
+}
