@@ -64,17 +64,6 @@ class Entity {
   }
 }
 
-class Document {
-  /**
-   * @type {Node}
-   */
-  doctype
-  /**
-   * @type {Node}
-   */
-  html
-}
-
 function decode(text, remove) {
   return text.replace(/_@#![0-9]+!#@_/g, (placeholder) => {
     const value = PLACEHOLDERS[placeholder]
@@ -348,7 +337,7 @@ function preProcess(content) {
       PLACEHOLDERS[p] = input
       return p
     })
-    .replace(/\{\{[\s\S]+?\}\}/g, (input) => {
+    .replace(/{{[\s\S]+?}}/g, (input) => {
       // 处理 模板表达式
       const p = getPlaceholder()
       PLACEHOLDERS[p] = input

@@ -92,10 +92,7 @@ function renderFor(attributes, children, context) {
   return result.join('')
 }
 
-function renderIf(attributes, children, context, node) {
-  if (!attributes.hasOwnProperty('on')) {
-    throw new Error('Missing attribute "on" for t-if')
-  }
+function renderCondition(attributes, children, context, node) {
   const expression = attributes.on
   const result = getObjectValue(context, expression)
 
@@ -112,6 +109,13 @@ function renderIf(attributes, children, context, node) {
   return parseChildren(children, context)
 }
 
+function renderIf(attributes, children, context, node) {
+  if (!attributes.hasOwnProperty('on')) {
+    throw new Error('Missing attribute "on" for t-if')
+  }
+  return renderCondition(attributes, children, context, node)
+}
+
 function renderElif(attributes, children, context, node) {
   if (!attributes.hasOwnProperty('on')) {
     throw new Error('Missing attribute "on" for t-elif')
@@ -121,20 +125,7 @@ function renderElif(attributes, children, context, node) {
     throw new Error('t-elif must after t-if or t-elif')
   }
 
-  const expression = attributes.on
-  const result = getObjectValue(context, expression)
-
-  // 给否定条件设置值
-  const nextNode = node.nextElement
-  if (nextNode && (nextNode.tag === TAGS.ELSE || nextNode.tag === TAGS.ELIF)) {
-    nextNode.__condition__ = !result
-  }
-
-  if (!result) {
-    return ''
-  }
-
-  return parseChildren(children, context)
+  return renderCondition(attributes, children, context, node)
 }
 
 function renderElse(attributes, children, context, node) {
@@ -152,7 +143,7 @@ function renderElse(attributes, children, context, node) {
 function parseChildren(children, context) {
   return children.map(element => {
     return parseElement(element, context)
-  }).join('').replace(/\{{2}(.+?)\}{2}/g, (input, exp) => {
+  }).join('').replace(/{{2}(.+?)}{2}/g, (input, exp) => {
     return getObjectValue(context, exp)
   })
 }
@@ -164,7 +155,7 @@ function parseElement(node, context) {
   }
 
   if (type === htmlParser.NODE_TYPES.TEXT_NODE) {
-    return raw.replace(/\{{2}(.+?)\}{2}/g, (input, exp) => {
+    return raw.replace(/{{2}(.+?)}{2}/g, (input, exp) => {
       return getObjectValue(context, exp)
     })
   }

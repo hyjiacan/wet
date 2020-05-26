@@ -1,14 +1,14 @@
 # jst
 
-Simple Javascript Template Engine. Depend on ES6.
+`jst` 是一个基于 ES6 的简易 WEB 模板引擎，完全没有第三方依赖。
 
 ## Features
 
-- `t-for`
-- `t-if`
-
-> Note: `t-else` not supported, use `t-if` instead
-
+- `t-for` 执行 `for..of`(遍历数组) 和 `for..in`(遍历集合): `<t-for on="item of list">`
+- `t-if` 条件: `<t-if on="condition">`
+- `t-else` 条件: `<t-else>`
+- `t-elif` 条件 `<t-elif on="condition">`
+- `{{}}` 表达式支持: `{{var}}`, `{{obj.prop.value}}`, `{{a - b}}`
 
 ## Sample
 
@@ -17,19 +17,19 @@ Simple Javascript Template Engine. Depend on ES6.
 ```html
 <div>
   <ul>
-    <t-for loop="item of list">
+    <t-for on="item of list">
       <li>{{item}}</li>
     </t-for>
-    <t-for loop="item in set">
+    <t-for on="item in set">
       <li>{{item.key}}: {{item.value}}</li>
     </t-for>
   </ul>
   <t-if on="visible">
     condition is true
   </t-if>
-  <t-if on="!condition">
+  <t-else>
     condition is false
-  </t-if>
+  </t-else>
 </div>
 ```
 
