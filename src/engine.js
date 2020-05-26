@@ -187,9 +187,11 @@ function parseElement(node, context) {
 function render(content, context) {
   const start = new Date().getTime()
   const dom = htmlParser.parse(content)
+  console.time('render')
   const html = dom.map(element => {
     return parseElement(element, context)
   }).join('')
+  console.timeEnd('render')
   const end = new Date().getTime()
   return html.replace('@{timestamp}@', (end - start).toString())
 }
