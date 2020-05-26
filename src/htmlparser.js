@@ -277,8 +277,32 @@ class Node {
    *
    * @return {Node}
    */
+  get nextElement() {
+    const next = this.next
+    if (next.isElement) {
+      return next
+    }
+    return next.next
+  }
+
+  /**
+   *
+   * @return {Node}
+   */
   get prev() {
     return this._parent._children[this._index - 1]
+  }
+
+  /**
+   *
+   * @return {Node}
+   */
+  get prevElement() {
+    const next = this.next
+    if (next.isElement) {
+      return next
+    }
+    return next.next
   }
 
   /**
@@ -377,6 +401,7 @@ function getNextEntity(content, offset) {
  * @return {Node[]}
  */
 function parse(content) {
+  console.time('parse')
   const tree = new Node()
 
   const stack = [tree]
@@ -424,7 +449,7 @@ function parse(content) {
     currentNode.close(entity)
     currentNode = stack.pop()
   }
-
+  console.timeEnd('parse')
   return tree.children
 }
 

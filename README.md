@@ -1,6 +1,6 @@
 # jst
 
-Simple Javascript Template Engine.
+Simple Javascript Template Engine. Depend on ES6.
 
 ## Features
 
@@ -45,3 +45,7 @@ const context = {
 }
 jst.render('demo.index', context)
 ```
+
+## TODO
+
+- [ ] 模板的错误信息输出(文件名，行号，错误信息)

@@ -5,6 +5,8 @@ const htmlParser = require('./htmlparser')
 // 允许的标签
 const TAGS = {
   IF: 't-if',
+  ELSE: 't-else',
+  ELIF: 't-elif',
   FOR: 't-for'
 }
 
@@ -40,7 +42,7 @@ function runForIn(context, varName, dataName) {
       }
     })
   }
-  return data`)
+  return data`, context)
 }
 
 /**
@@ -58,13 +60,13 @@ function getObjectValue(obj, valueNames) {
  * @param attributes
  * @param children
  * @param context
- * @return {[]}
+ * @return {string}
  */
 function renderFor(attributes, children, context) {
-  if (!attributes.hasOwnProperty('loop')) {
-    throw new Error('Missing attribute "loop" for t-for')
+  if (!attributes.hasOwnProperty('on')) {
+    throw new Error('Missing attribute "on" for t-for')
   }
-  const expression = attributes.loop
+  const expression = attributes.on
   const temp = expression.split(' ')
 
   const varName = temp[0]
@@ -83,20 +85,64 @@ function renderFor(attributes, children, context) {
   for (const item of loopContext) {
     const itemContext = {
       ...context,
-      [varName]: item
+      ...item
     }
     result.push(parseChildren(children, itemContext))
   }
   return result.join('')
 }
 
-function renderIf(attributes, children, context) {
+function renderIf(attributes, children, context, node) {
   if (!attributes.hasOwnProperty('on')) {
     throw new Error('Missing attribute "on" for t-if')
   }
   const expression = attributes.on
   const result = getObjectValue(context, expression)
+
+  // 给否则条件设置值
+  const nextNode = node.nextElement
+  if (nextNode && (nextNode.tag === TAGS.ELSE || nextNode.tag === TAGS.ELIF)) {
+    nextNode.__condition__ = !result
+  }
+
   if (!result) {
+    return ''
+  }
+
+  return parseChildren(children, context)
+}
+
+function renderElif(attributes, children, context, node) {
+  if (!attributes.hasOwnProperty('on')) {
+    throw new Error('Missing attribute "on" for t-elif')
+  }
+
+  if (!node.hasOwnProperty('__condition__')) {
+    throw new Error('t-elif must after t-if or t-elif')
+  }
+
+  const expression = attributes.on
+  const result = getObjectValue(context, expression)
+
+  // 给否定条件设置值
+  const nextNode = node.nextElement
+  if (nextNode && (nextNode.tag === TAGS.ELSE || nextNode.tag === TAGS.ELIF)) {
+    nextNode.__condition__ = !result
+  }
+
+  if (!result) {
+    return ''
+  }
+
+  return parseChildren(children, context)
+}
+
+function renderElse(attributes, children, context, node) {
+  if (!node.hasOwnProperty('__condition__')) {
+    throw new Error('t-else must after t-if or t-elif')
+  }
+
+  if (!node.__condition__) {
     return ''
   }
 
@@ -106,21 +152,24 @@ function renderIf(attributes, children, context) {
 function parseChildren(children, context) {
   return children.map(element => {
     return parseElement(element, context)
-  }).join('').replace(/\{\{(.+?)\}\}/g, (input, exp) => {
+  }).join('').replace(/\{{2}(.+?)\}{2}/g, (input, exp) => {
     return getObjectValue(context, exp)
   })
 }
 
-function parseElement({type, raw, tag, attrs, attrsString, children}, context) {
+function parseElement(node, context) {
+  const {type, raw} = node
   if (type === htmlParser.NODE_TYPES.DOCUMENT_TYPE_NODE) {
     return raw
   }
 
   if (type === htmlParser.NODE_TYPES.TEXT_NODE) {
-    return raw.replace(/\{\{(.+?)\}\}/g, (input, exp) => {
+    return raw.replace(/\{{2}(.+?)\}{2}/g, (input, exp) => {
       return getObjectValue(context, exp)
     })
   }
+
+  const {tag, attrs, children} = node
 
   let content = ''
 
@@ -129,29 +178,31 @@ function parseElement({type, raw, tag, attrs, attrsString, children}, context) {
   }
 
   if (tag === TAGS.IF) {
-    return renderIf(attrs, children, context)
+    return renderIf(attrs, children, context, node)
+  }
+
+  if (tag === TAGS.ELIF) {
+    return renderElif(attrs, children, context, node)
+  }
+
+  if (tag === TAGS.ELSE) {
+    return renderElse(attrs, children, context, node)
   }
 
   const childrenElements = children ? children.map(child => parseElement(child, context)) : []
 
-  content = `<${tag}${attrsString}>${childrenElements.join('')}</${tag}>`
+  content = `<${tag}${node.attrsString}>${childrenElements.join('')}</${tag}>`
   return content
 }
 
 function render(content, context) {
-  return new Promise((resolve, reject) => {
-    const start = new Date().getTime()
-    try {
-      const dom = htmlParser.parse(content)
-      const html = dom.map(element => {
-        return parseElement(element, context)
-      }).join('')
-      const end = new Date().getTime()
-      resolve(html.replace('@{timestamp}@', (end - start).toFixed(3)))
-    } catch (e) {
-      reject(e)
-    }
-  })
+  const start = new Date().getTime()
+  const dom = htmlParser.parse(content)
+  const html = dom.map(element => {
+    return parseElement(element, context)
+  }).join('')
+  const end = new Date().getTime()
+  return html.replace('@{timestamp}@', (end - start).toString())
 }
 
 const jst = {
@@ -161,9 +212,7 @@ const jst = {
    * @param {object} context
    * @return {string}
    */
-  async render(content, context) {
-    return render(content, context)
-  }
+  render
 }
 
 module.exports = jst
