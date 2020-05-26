@@ -1,6 +1,6 @@
 {
   "name": "jst",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Simple Javascript Template Engine",
   "main": "src/engine.js",
   "scripts": {
