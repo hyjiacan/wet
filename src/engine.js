@@ -24,7 +24,7 @@ function runCode(code, context) {
  * 数组迭代
  */
 function runForOf(context, varName, dataName) {
-  return runCode(`return ${dataName}.map(${varName} => ${varName})`, context)
+  return runCode(`return ${dataName}.map(item => item)`, context)
 }
 
 /**
@@ -36,10 +36,8 @@ function runForIn(context, varName, dataName) {
   for(const key in ${dataName}) {
     const value = ${dataName}[key]
     data.push({
-      ${varName}: {
-        key,
-        value
-      }
+      key,
+      value
     })
   }
   return data`, context)
@@ -85,7 +83,7 @@ function renderFor(attributes, children, context) {
   for (const item of loopContext) {
     const itemContext = {
       ...context,
-      ...item
+      [varName]: item
     }
     result.push(parseChildren(children, itemContext))
   }
