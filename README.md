@@ -2,9 +2,6 @@
 
 Simple Javascript Template Engine.
 
-Depend on [htmlparser](https://github.com/tautologistics/node-htmlparser)
-
-
 ## Features
 
 - `t-for`

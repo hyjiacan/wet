@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="generator" content="tiny-template"/>
+  <title>Index - {{$appName}}</title>
+  <style type="text/css">
+  .pkg-version {
+    background-color: #5f6371;
+    color: #ffffff;
+    padding: 2px 5px;
+    margin: 0 5px;
+  }
+  </style>
+</head>
+<body>
+<h1>Index - {{$appName}}</h1>
+<ul>
+  <t-for loop="item of projects">
+    <li>
+      <div>
+        <h3>
+          <span>{{item.projectName}}</span>
+          <small style="font-size: 14px">
+            <span class="pkg-version">{{item.name}}@{{item.version}}</span>
+            <a href="{{item.repoUrl}}">Repository</a> |
+            <a href="{{item.projectName}}/">Page</a>
+          </small>
+        </h3>
+      </div>
+      <t-if on="item.description">
+        <div style="color: #666;">{{item.description}}</div>
+      </t-if>
+      <t-if on="!item.description">
+        <div style="color: #666;">无描述</div>
+      </t-if>
+    </li>
+  </t-for>
+</ul>
+<hr>
+<div style="text-align: center">
+  <span>Powered by jst.</span>
+  <span>Template render takes @{timestamp}@ ms</span>
+</div>
+</body>
+</html>

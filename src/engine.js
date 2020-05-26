@@ -1,6 +1,6 @@
 // simple javascript template engine
 
-const htmlParser = require('htmlparser')
+const htmlParser = require('./htmlparser')
 
 // 允许的标签
 const TAGS = {
@@ -111,54 +111,46 @@ function parseChildren(children, context) {
   })
 }
 
-function parseElement({type, raw, name, attributes, children, data}, context) {
-  if (type === 'doctype') {
-    return `<!DOCTYPE ${data}>`
+function parseElement({type, raw, tag, attrs, attrsString, children}, context) {
+  if (type === htmlParser.NODE_TYPES.DOCUMENT_TYPE_NODE) {
+    return raw
   }
 
-  if (type === 'text') {
-    return data.replace(/\{\{(.+?)\}\}/g, (input, exp) => {
+  if (type === htmlParser.NODE_TYPES.TEXT_NODE) {
+    return raw.replace(/\{\{(.+?)\}\}/g, (input, exp) => {
       return getObjectValue(context, exp)
     })
   }
 
   let content = ''
 
-  if (name === TAGS.FOR) {
-    return renderFor(attributes, children, context)
+  if (tag === TAGS.FOR) {
+    return renderFor(attrs, children, context)
   }
 
-  if (name === TAGS.IF) {
-    return renderIf(attributes, children, context)
+  if (tag === TAGS.IF) {
+    return renderIf(attrs, children, context)
   }
 
   const childrenElements = children ? children.map(child => parseElement(child, context)) : []
 
-  content = `<${raw}>${childrenElements.join('')}</${name}>`
+  content = `<${tag}${attrsString}>${childrenElements.join('')}</${tag}>`
   return content
-}
-
-function domHandler(dom, context) {
-  return dom.map(element => {
-    return parseElement(element, context)
-  }).join('')
 }
 
 function render(content, context) {
   return new Promise((resolve, reject) => {
     const start = new Date().getTime()
-    const builder = new htmlParser.HtmlBuilder((err, dom) => {
-      if (err) {
-        reject(err)
-        return
-      }
-      const html = domHandler(dom, context)
+    try {
+      const dom = htmlParser.parse(content)
+      const html = dom.map(element => {
+        return parseElement(element, context)
+      }).join('')
       const end = new Date().getTime()
-      resolve(html.replace('@{timestamp}@', end - start))
-    })
-
-    const parser = new htmlParser.Parser(builder)
-    parser.parseComplete(content)
+      resolve(html.replace('@{timestamp}@', (end - start).toFixed(3)))
+    } catch (e) {
+      reject(e)
+    }
   })
 }
 
