@@ -1,13 +1,18 @@
 // simple javascript template engine
 
+const crypto = require('crypto')
 const htmlParser = require('./htmlparser')
+
+// htmlparser 解析出的树缓存
+const DOM_CACHE = {}
 
 // 允许的标签
 const TAGS = {
   IF: 't-if',
   ELSE: 't-else',
   ELIF: 't-elif',
-  FOR: 't-for'
+  FOR: 't-for',
+  WITH: 't-with'
 }
 
 /**
@@ -138,6 +143,27 @@ function renderElse(attributes, children, context, node) {
   return parseChildren(children, context)
 }
 
+/**
+ * 渲染 with 语法
+ * @param attributes
+ * @param children
+ * @param context
+ */
+function renderWith(attributes, children, context) {
+  const alias = {}
+  for (const varName in attributes) {
+    const expression = attributes[varName]
+
+    alias[varName] = runCode(`return ${expression}`, context)
+  }
+
+  return parseChildren(children, {
+    ...context,
+    ...alias
+  })
+}
+
+
 function parseChildren(children, context) {
   return children.map(element => {
     return parseElement(element, context)
@@ -178,15 +204,44 @@ function parseElement(node, context) {
     return renderElse(attrs, children, context, node)
   }
 
+  if (tag === TAGS.WITH) {
+    return renderWith(attrs, children, context)
+  }
+
   const childrenElements = children ? children.map(child => parseElement(child, context)) : []
 
   content = `<${tag}${node.attrsString}>${childrenElements.join('')}</${tag}>`
   return content
 }
 
-function render(content, context) {
+function parseDOM(content, cache) {
+  if (!cache) {
+    return htmlParser.parse(content)
+  }
+  // 读取内容的md5
+  const md5 = crypto.createHash('md5').update(content).digest('hex')
+  if (DOM_CACHE.hasOwnProperty(md5)) {
+    return DOM_CACHE[md5]
+  }
+  return DOM_CACHE[md5] = htmlParser.parse(content)
+}
+
+/**
+ *
+ * @param content
+ * @param context
+ * @param {object} [options]
+ * @param {boolean} [options.cache=false]
+ * @return {string}
+ */
+function render(content, context, options) {
+  options = {
+    cache: false,
+    ...options
+  }
+
   const start = new Date().getTime()
-  const dom = htmlParser.parse(content)
+  const dom = parseDOM(content, options.cache)
   console.time('render')
   const html = dom.map(element => {
     return parseElement(element, context)
