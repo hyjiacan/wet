@@ -178,7 +178,9 @@ function parseElement(node, context) {
     return raw
   }
 
-  if (type === htmlParser.NODE_TYPES.TEXT_NODE) {
+  if (type === htmlParser.NODE_TYPES.TEXT_NODE ||
+    type === htmlParser.NODE_TYPES.COMMENT_NODE ||
+    type === htmlParser.NODE_TYPES.CDATA_SECTION_NODE) {
     return raw.replace(/{{2}(.+?)}{2}/g, (input, exp) => {
       return getObjectValue(context, exp)
     })
@@ -209,7 +211,6 @@ function parseElement(node, context) {
   }
 
   const childrenElements = children ? children.map(child => parseElement(child, context)) : []
-
   content = `<${tag}${node.attrsString}>${childrenElements.join('')}</${tag}>`
   return content
 }
