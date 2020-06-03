@@ -6,13 +6,18 @@ const htmlParser = require('./htmlparser')
 // htmlparser 解析出的树缓存
 const DOM_CACHE = {}
 
+// 用于渲染树的节点缓存
+const TREE_CACHE = {}
+
 // 允许的标签
 const TAGS = {
   IF: 't-if',
   ELSE: 't-else',
   ELIF: 't-elif',
   FOR: 't-for',
-  WITH: 't-with'
+  WITH: 't-with',
+  TREE: 't-tree',
+  CHILDREN: 't-children'
 }
 
 /**
@@ -151,10 +156,16 @@ function renderElse(attributes, children, context, node) {
  */
 function renderWith(attributes, children, context) {
   const alias = {}
+  let hasKey = false
   for (const varName in attributes) {
+    hasKey = true
     const expression = attributes[varName]
 
     alias[varName] = runCode(`return ${expression}`, context)
+  }
+
+  if (!hasKey) {
+    throw new Error('Must specify at least one attribute for t-with')
   }
 
   return parseChildren(children, {
@@ -163,6 +174,61 @@ function renderWith(attributes, children, context) {
   })
 }
 
+/**
+ * 渲染 tree 语法
+ * @param attributes
+ * @param children
+ * @param context
+ */
+function renderTree(attributes, children, context) {
+  if (!attributes.hasOwnProperty('on')) {
+    throw new Error('Missing attribute "on" for t-tree')
+  }
+
+  const expression = attributes.on
+  // 树数据的变量名称与树项的变量名称
+  const [treeName, varName] = expression.split(' as ')
+  let treeData = context[treeName]
+  if (!Array.isArray(treeData)) {
+    throw new Error(`Data must be an Array for t-tree: ${treeName}`)
+  }
+
+  const treeId = `${new Date().getTime()}${Math.round(Math.random() * 1000)}`
+
+  TREE_CACHE[treeId] = {
+    children,
+    varName
+  }
+
+  const result = renderTreeChildren(treeData, treeId, context)
+
+  delete TREE_CACHE[treeId]
+
+  return result
+}
+
+function renderTreeChildren(data, treeId, context) {
+  const {children, varName} = TREE_CACHE[treeId]
+  return data.map(item => {
+    return parseChildren(children, {
+      __tree_id__: treeId,
+      ...context,
+      [varName]: item
+    })
+  }).join('\n')
+}
+
+function renderChildren(attrs, context) {
+  const treeId = context.__tree_id__
+  const field = attrs.field || 'children'
+  const {varName} = TREE_CACHE[treeId]
+  const data = context[varName][field]
+  // 没有子元素了
+  if (!data) {
+    return ''
+  }
+  return renderTreeChildren(data, treeId, context)
+}
 
 function parseChildren(children, context) {
   return children.map(element => {
@@ -208,6 +274,14 @@ function parseElement(node, context) {
 
   if (tag === TAGS.WITH) {
     return renderWith(attrs, children, context)
+  }
+
+  if (tag === TAGS.TREE) {
+    return renderTree(attrs, children, context, node)
+  }
+
+  if (tag === TAGS.CHILDREN) {
+    return renderChildren(attrs, context)
   }
 
   const childrenElements = children ? children.map(child => parseElement(child, context)) : []

@@ -113,7 +113,7 @@ class Node {
     this._type = entity.type
     this._isElement = entity.type === NODE_TYPES.ELEMENT_NODE
 
-    if (this.isElement) {
+    if (this.isElement && entity.state !== 'close') {
       // 解析数据
       this._resolve(entity)
     }
@@ -127,12 +127,12 @@ class Node {
    * @param {Entity} [entity]
    */
   _resolve(entity) {
-    const tagName = /^<([^\s>]+)/.exec(entity.data)[1]
+    const [_, tagName] = /^<([^\s\/>]+)/.exec(entity.data)
     // 属性名称中可能包含变量
     this._tag = decode(tagName)
 
     // 读取属性，移除末尾的 > 符号和换行符
-    const attrText = entity.data.substring(tagName.length + 1).replace(/[>\r\n]+$/, '')
+    const attrText = entity.data.substring(tagName.length + 1).replace(/\/?[>\r\n]+$/, '')
     const attrReg = /(?<name>[^\s=]+)(=(?<value>[\S]*))?/ig
 
     let match
@@ -390,7 +390,6 @@ function getNextEntity(content, offset) {
  * @return {Node[]}
  */
 function parse(content) {
-  console.time('parse')
   const tree = new Node()
 
   const stack = [tree]
@@ -438,7 +437,6 @@ function parse(content) {
     currentNode.close(entity)
     currentNode = stack.pop()
   }
-  console.timeEnd('parse')
   return tree.children
 }
 
