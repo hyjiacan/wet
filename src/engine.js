@@ -63,6 +63,12 @@ function getObjectValue(obj, valueNames) {
   return runCode(`return ${valueNames}`, obj)
 }
 
+function resolveExpression(content, context) {
+  return content.replace(/{{2}(.+?)}{2}/g, (input, exp) => {
+    return getObjectValue(context, exp)
+  })
+}
+
 /**
  * 渲染 For 结构，包括 for...in 和 for...of
  * @param attributes
@@ -231,11 +237,11 @@ function renderChildren(attrs, context) {
 }
 
 function parseChildren(children, context) {
-  return children.map(element => {
+  const temp = children.map(element => {
     return parseElement(element, context)
-  }).join('').replace(/{{2}(.+?)}{2}/g, (input, exp) => {
-    return getObjectValue(context, exp)
-  })
+  }).join('')
+
+  return resolveExpression(temp, context)
 }
 
 function renderTemplateTag({tag}, children) {
@@ -256,9 +262,7 @@ function parseElement(node, context) {
     // if (node.prev && isTemplateTag(node.prev) && /^\s*$/.test(raw)) {
     //   return ''
     // }
-    return raw.replace(/{{2}(.+?)}{2}/g, (input, exp) => {
-      return getObjectValue(context, exp)
-    })
+    return resolveExpression(raw, context)
   }
 
   const {tag, attrs, children} = node
@@ -294,7 +298,8 @@ function parseElement(node, context) {
   }
 
   const childrenElements = children ? children.map(child => parseElement(child, context)) : []
-  content = `<${tag}${node.attrsString}>${childrenElements.join('')}</${tag}>`
+  const parsedAttrs = resolveExpression(node.attrsString, context)
+  content = `<${tag}${parsedAttrs}>${childrenElements.join('')}</${tag}>`
   return content
 }
 
@@ -324,6 +329,7 @@ function render(content, context, options) {
     ...options
   }
 
+  // TODO 把耗时写入 context 中，和其它的表达式一样的用法
   const start = new Date().getTime()
   const dom = parseDOM(content, options.cache)
   const html = dom.map(element => {
