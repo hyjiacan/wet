@@ -238,15 +238,6 @@ function parseChildren(children, context) {
   })
 }
 
-function isTemplateTag(node) {
-  for (const name in TAGS) {
-    if (node.tag === TAGS[name]) {
-      return true
-    }
-  }
-  return false
-}
-
 function renderTemplateTag({tag}, children) {
   return `<!-- ${tag} begin -->
 ${children}

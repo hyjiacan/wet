@@ -106,7 +106,7 @@ class Node {
   /**
    * @type {Node}
    */
-  _parent
+  _parent = null
 
   /**
    *
