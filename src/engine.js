@@ -111,7 +111,7 @@ function renderCondition(attributes, children, context, node) {
   }
 
   if (!result) {
-    return ''
+    return '<!-- -->'
   }
 
   return parseChildren(children, context)
@@ -142,7 +142,7 @@ function renderElse(attributes, children, context, node) {
   }
 
   if (!node.__condition__) {
-    return ''
+    return '<!-- -->'
   }
 
   return parseChildren(children, context)
@@ -215,7 +215,7 @@ function renderTreeChildren(data, treeId, context) {
       ...context,
       [varName]: item
     })
-  }).join('\n')
+  }).join('')
 }
 
 function renderChildren(attrs, context) {
@@ -238,6 +238,21 @@ function parseChildren(children, context) {
   })
 }
 
+function isTemplateTag(node) {
+  for (const name in TAGS) {
+    if (node.tag === TAGS[name]) {
+      return true
+    }
+  }
+  return false
+}
+
+function renderTemplateTag({tag}, children) {
+  return `<!-- ${tag} begin -->
+${children}
+<!-- ${tag} end -->`
+}
+
 function parseElement(node, context) {
   const {type, raw} = node
   if (type === htmlParser.NODE_TYPES.DOCUMENT_TYPE_NODE) {
@@ -247,6 +262,9 @@ function parseElement(node, context) {
   if (type === htmlParser.NODE_TYPES.TEXT_NODE ||
     type === htmlParser.NODE_TYPES.COMMENT_NODE ||
     type === htmlParser.NODE_TYPES.CDATA_SECTION_NODE) {
+    // if (node.prev && isTemplateTag(node.prev) && /^\s*$/.test(raw)) {
+    //   return ''
+    // }
     return raw.replace(/{{2}(.+?)}{2}/g, (input, exp) => {
       return getObjectValue(context, exp)
     })
@@ -257,27 +275,27 @@ function parseElement(node, context) {
   let content = ''
 
   if (tag === TAGS.FOR) {
-    return renderFor(attrs, children, context)
+    return renderTemplateTag(node, renderFor(attrs, children, context))
   }
 
   if (tag === TAGS.IF) {
-    return renderIf(attrs, children, context, node)
+    return renderTemplateTag(node, renderIf(attrs, children, context, node))
   }
 
   if (tag === TAGS.ELIF) {
-    return renderElif(attrs, children, context, node)
+    return renderTemplateTag(node, renderElif(attrs, children, context, node))
   }
 
   if (tag === TAGS.ELSE) {
-    return renderElse(attrs, children, context, node)
+    return renderTemplateTag(node, renderElse(attrs, children, context, node))
   }
 
   if (tag === TAGS.WITH) {
-    return renderWith(attrs, children, context)
+    return renderTemplateTag(node, renderWith(attrs, children, context))
   }
 
   if (tag === TAGS.TREE) {
-    return renderTree(attrs, children, context, node)
+    return renderTemplateTag(node, renderTree(attrs, children, context, node))
   }
 
   if (tag === TAGS.CHILDREN) {
@@ -317,11 +335,9 @@ function render(content, context, options) {
 
   const start = new Date().getTime()
   const dom = parseDOM(content, options.cache)
-  console.time('render')
   const html = dom.map(element => {
     return parseElement(element, context)
   }).join('')
-  console.timeEnd('render')
   const end = new Date().getTime()
   return html.replace('@{timestamp}@', (end - start).toString())
 }

@@ -35,11 +35,18 @@ class Entity {
    * @param {string} data
    */
   constructor(data) {
-    this.type = this._getEntityType(data)
-    if (this.type === NODE_TYPES.ELEMENT_NODE) {
-      this._state = data[1] === '/' ? 'close' : 'open'
-    }
     this.data = data
+    this.type = this._getEntityType(data)
+    if (this.type !== NODE_TYPES.ELEMENT_NODE) {
+      return
+    }
+    if (/^<\//.test(data)) {
+      this._state = 'close'
+    } else if (/\/>$/.test(data)) {
+      this._state = 'self-close'
+    } else {
+      this._state = 'open'
+    }
   }
 
 
@@ -113,7 +120,7 @@ class Node {
     this._type = entity.type
     this._isElement = entity.type === NODE_TYPES.ELEMENT_NODE
 
-    if (this.isElement && entity.state !== 'close') {
+    if (this.isElement) {
       // 解析数据
       this._resolve(entity)
     }
@@ -127,6 +134,13 @@ class Node {
    * @param {Entity} [entity]
    */
   _resolve(entity) {
+    if (entity.state === 'close') {
+      const [_, tagName] = /^<\/([^\/>]+)>$/.exec(entity.data)
+      // 属性名称中可能包含变量
+      this._tag = decode(tagName)
+      return
+    }
+
     const [_, tagName] = /^<([^\s\/>]+)/.exec(entity.data)
     // 属性名称中可能包含变量
     this._tag = decode(tagName)
@@ -392,8 +406,6 @@ function getNextEntity(content, offset) {
 function parse(content) {
   const tree = new Node()
 
-  const stack = [tree]
-
   let currentNode = tree
 
   content = preProcess(content)
@@ -416,18 +428,26 @@ function parse(content) {
     if (currentNode.closed) {
       if (entity.state === 'close') {
         // 此时的 state === close 直接丢弃
+        continue
       }
 
-      stack.push(currentNode)
       // 添加为兄弟元素
       currentNode.parent.appendChild(node)
-      currentNode = node
+      // 自闭合元素没有下级
+      if (entity.state === 'open') {
+        currentNode = node
+      }
+      continue
+    }
+
+    // 自闭合元素，添加为下级，不设置为当前节点
+    if (entity.state === 'self-close') {
+      currentNode.appendChild(node)
       continue
     }
 
     // 当前元素未结束，又遇到新元素，那么就是下级了
     if (entity.state === 'open') {
-      stack.push(currentNode)
       currentNode.appendChild(node)
       currentNode = node
       continue
@@ -435,7 +455,7 @@ function parse(content) {
 
     // 元素结束
     currentNode.close(entity)
-    currentNode = stack.pop()
+    currentNode = currentNode.parent
   }
   return tree.children
 }
