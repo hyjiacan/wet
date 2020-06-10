@@ -39,6 +39,12 @@
 
 此标签标记子节点应该渲染的位置
 
+### `t-include`
+
+包含功能支持 `<t-include file="./another.html" />`
+
+其属性 `file` 是一个相对文件路径，相对于当前文件的目录。
+
 ### `{{}}`
 
 表达式支持: `{{var}}`, `{{obj.prop.value}}`, `{{a - b}}`
@@ -70,6 +76,15 @@
   <t-else>
     condition is false
   </t-else>
+  <t-tree on="treeData as item">
+    <div>
+      {{item.data}}
+      <div>
+      	<t-children />    
+      </div>
+    </div>
+  </t-tree>
+  <t-include file="../common/footer.html" />
 </div>
 ```
 
@@ -94,5 +109,5 @@ jst.render('demo.index', context, {cache: true})
 
 ## TODO
 
-- [ ] 添加 `t-tree` 支持，以渲染树形结构
+- [x] 添加 `t-tree` 支持，以渲染树形结构
 - [ ] 模板的错误信息输出(文件名，行号，错误信息)
