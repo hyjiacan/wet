@@ -51,6 +51,8 @@
 
 > 除表达式以外，其它特性暂不支持在 `style` 和 `script` 内容中使用
 
+注意：目前不建议使用多行表达式，否则在错误信息中的行号会不正确
+
 ## Sample
 
 *demo.html*
@@ -102,7 +104,7 @@ const context = {
   },
   visible: false
 }
-jst.render('demo.index', context, {cache: true})
+jst.render('./demo.html', context, {cache: true})
 ```
 
 `context` 必须是对象，不能是数组
@@ -110,4 +112,4 @@ jst.render('demo.index', context, {cache: true})
 ## TODO
 
 - [x] 添加 `t-tree` 支持，以渲染树形结构
-- [ ] 模板的错误信息输出(文件名，行号，错误信息)
+- [x] 模板的错误信息输出(文件名，行号，错误信息)

@@ -76,6 +76,23 @@ ${children}
 <!-- ${tag.toUpperCase()} END -->`
 }
 
+function raiseTemplateError(options, node, message) {
+  const prevElement = node.prevElement
+  const nextElement = node.nextElement
+  const prev = prevElement ? `\t   ${prevElement.toString()}\n` : ''
+  const next = nextElement ? `\n\t   ${nextElement.toString()}` : ''
+  throw new ParseError(`${message}
+\t${options.filename}:${node.line}
+${prev}\t-> ${node.raw}${next}\n`)
+}
+
+class ParseError extends Error {
+  constructor(message) {
+    super(message)
+    this.name = 'ParseError'
+  }
+}
+
 class Engine {
   // 用于渲染树的节点缓存
   TREE_CACHE = {}
@@ -86,7 +103,7 @@ class Engine {
    * @param context
    * @param {object} [options]
    * @param {boolean} [options.cache=false]
-   * @param {boolean} [options.path] 模板文件所在目录，用于 t-include 时的相对路径
+   * @param {boolean} [options.filename] 模板文件路径
    */
   constructor(content, context, options) {
     this.content = content
@@ -113,56 +130,60 @@ class Engine {
     if (type === htmlParser.NODE_TYPES.DOCUMENT_TYPE_NODE) {
       return raw
     }
+    try {
+      if (type === htmlParser.NODE_TYPES.TEXT_NODE ||
+        type === htmlParser.NODE_TYPES.COMMENT_NODE ||
+        type === htmlParser.NODE_TYPES.CDATA_SECTION_NODE) {
+        // if (node.prev && isTemplateTag(node.prev) && /^\s*$/.test(raw)) {
+        //   return ''
+        // }
+        return resolveExpression(raw, context)
+      }
 
-    if (type === htmlParser.NODE_TYPES.TEXT_NODE ||
-      type === htmlParser.NODE_TYPES.COMMENT_NODE ||
-      type === htmlParser.NODE_TYPES.CDATA_SECTION_NODE) {
-      // if (node.prev && isTemplateTag(node.prev) && /^\s*$/.test(raw)) {
-      //   return ''
-      // }
-      return resolveExpression(raw, context)
+      const {tag, children} = node
+
+      if (tag === TAGS.FOR) {
+        return renderTemplateTag(node, await this.renderFor(node, context))
+      }
+
+      if (tag === TAGS.IF) {
+        return renderTemplateTag(node, await this.renderIf(node, context))
+      }
+
+      if (tag === TAGS.ELIF) {
+        return renderTemplateTag(node, await this.renderElif(node, context))
+      }
+
+      if (tag === TAGS.ELSE) {
+        return renderTemplateTag(node, await this.renderElse(node, context))
+      }
+
+      if (tag === TAGS.WITH) {
+        return renderTemplateTag(node, await this.renderWith(node, context))
+      }
+
+      if (tag === TAGS.TREE) {
+        return renderTemplateTag(node, await this.renderTree(node, context))
+      }
+
+      if (tag === TAGS.CHILDREN) {
+        return this.renderChildren(node, context)
+      }
+
+      if (tag === TAGS.INCLUDE) {
+        return renderTemplateTag(node, await this.renderInclude(node, context))
+      }
+
+      const childrenElements = children ? await Promise.all(children.map(async child => await this.parseElement(child, context))) : []
+      const parsedAttrs = resolveExpression(node.attrsString, context)
+      return `<${tag}${parsedAttrs}>${childrenElements.join('')}</${tag}>`
+    } catch (e) {
+      if (e instanceof ParseError) {
+        throw e
+      } else {
+        raiseTemplateError(this.options, node, e.message)
+      }
     }
-
-    const {tag, attrs, children} = node
-
-    let content = ''
-
-    if (tag === TAGS.FOR) {
-      return renderTemplateTag(node, await this.renderFor(attrs, children, context))
-    }
-
-    if (tag === TAGS.IF) {
-      return renderTemplateTag(node, await this.renderIf(attrs, children, context, node))
-    }
-
-    if (tag === TAGS.ELIF) {
-      return renderTemplateTag(node, await this.renderElif(attrs, children, context, node))
-    }
-
-    if (tag === TAGS.ELSE) {
-      return renderTemplateTag(node, await this.renderElse(attrs, children, context, node))
-    }
-
-    if (tag === TAGS.WITH) {
-      return renderTemplateTag(node, await this.renderWith(attrs, children, context))
-    }
-
-    if (tag === TAGS.TREE) {
-      return renderTemplateTag(node, await this.renderTree(attrs, children, context, node))
-    }
-
-    if (tag === TAGS.CHILDREN) {
-      return this.renderChildren(attrs, context)
-    }
-
-    if (tag === TAGS.INCLUDE) {
-      return renderTemplateTag(node, await this.renderInclude(attrs, context))
-    }
-
-    const childrenElements = children ? await Promise.all(children.map(async child => await this.parseElement(child, context))) : []
-    const parsedAttrs = resolveExpression(node.attrsString, context)
-    content = `<${tag}${parsedAttrs}>${childrenElements.join('')}</${tag}>`
-    return content
   }
 
   parseDOM(content, cache) {
@@ -187,27 +208,27 @@ class Engine {
 
   /**
    * 渲染 For 结构，包括 for...in 和 for...of
-   * @param attributes
-   * @param children
+   * @param node
    * @param context
    * @return {string}
    */
-  async renderFor(attributes, children, context) {
-    if (!attributes.hasOwnProperty('on')) {
+  async renderFor(node, context) {
+    const {attrs, children} = node
+    if (!attrs.hasOwnProperty('on')) {
       throw new Error('Missing attribute "on" for t-for')
     }
-    const expression = attributes.on
+    const expression = attrs.on
     const temp = expression.split(' ')
 
     const varName = temp[0]
     const operator = temp[1]
-    const data = temp[2]
+    const dataName = temp[2]
 
     let loopContext
     if (operator === 'of') {
-      loopContext = runForOf(context, varName, data)
+      loopContext = runForOf(context, varName, dataName)
     } else if (operator === 'in') {
-      loopContext = runForIn(context, varName, data)
+      loopContext = runForIn(context, varName, dataName)
     }
 
     const result = []
@@ -222,8 +243,9 @@ class Engine {
     return result.join('')
   }
 
-  async renderCondition(attributes, children, context, node) {
-    const expression = attributes.on
+  async renderCondition(node, context) {
+    const {attrs, children} = node
+    const expression = attrs.on
     const result = getObjectValue(context, expression)
 
     // 给否则条件设置值
@@ -239,15 +261,15 @@ class Engine {
     return await this.parseChildren(children, context)
   }
 
-  renderIf(attributes, children, context, node) {
-    if (!attributes.hasOwnProperty('on')) {
+  renderIf(node, context) {
+    if (!node.attrs.hasOwnProperty('on')) {
       throw new Error('Missing attribute "on" for t-if')
     }
-    return this.renderCondition(attributes, children, context, node)
+    return this.renderCondition(node, context)
   }
 
-  renderElif(attributes, children, context, node) {
-    if (!attributes.hasOwnProperty('on')) {
+  renderElif(node, context) {
+    if (!node.attrs.hasOwnProperty('on')) {
       throw new Error('Missing attribute "on" for t-elif')
     }
 
@@ -255,10 +277,10 @@ class Engine {
       throw new Error('t-elif must after t-if or t-elif')
     }
 
-    return this.renderCondition(attributes, children, context, node)
+    return this.renderCondition(node, context)
   }
 
-  async renderElse(attributes, children, context, node) {
+  async renderElse(node, context) {
     if (!node.hasOwnProperty('__condition__')) {
       throw new Error('t-else must after t-if or t-elif')
     }
@@ -267,24 +289,24 @@ class Engine {
       return '<!-- FALSE -->'
     }
 
-    return await this.parseChildren(children, context)
+    return await this.parseChildren(node.children, context)
   }
 
   /**
    * 渲染 with 语法
-   * @param attributes
-   * @param children
+   * @param node
    * @param context
    */
-  async renderWith(attributes, children, context) {
+  async renderWith(node, context) {
+    const {attrs, children} = node
     const alias = {}
     let hasKey = false
-    for (const varName in attributes) {
-      if (!attributes.hasOwnProperty(varName)) {
+    for (const varName in attrs) {
+      if (!attrs.hasOwnProperty(varName)) {
         continue
       }
       hasKey = true
-      const expression = attributes[varName]
+      const expression = attrs[varName]
 
       alias[varName] = runCode(`return ${expression}`, context)
     }
@@ -301,16 +323,16 @@ class Engine {
 
   /**
    * 渲染 tree 语法
-   * @param attributes
-   * @param children
+   * @param node
    * @param context
    */
-  renderTree(attributes, children, context) {
-    if (!attributes.hasOwnProperty('on')) {
+  renderTree(node, context) {
+    const {attrs, children} = node
+    if (!attrs.hasOwnProperty('on')) {
       throw new Error('Missing attribute "on" for t-tree')
     }
 
-    const expression = attributes.on
+    const expression = attrs.on
     // 树数据的变量名称与树项的变量名称
     const [treeName, varName] = expression.split(' as ')
     let treeData = context[treeName]
@@ -344,7 +366,7 @@ class Engine {
     return temp.join('')
   }
 
-  renderChildren(attrs, context) {
+  renderChildren({attrs}, context) {
     const treeId = context.__tree_id__
     const field = attrs.field || 'children'
     const {varName} = this.TREE_CACHE[treeId]
@@ -358,15 +380,15 @@ class Engine {
 
   /**
    *
-   * @param {string} attrs.file 被包含的文件
+   * @param attrs
    * @param context
    * @return {*}
    */
-  async renderInclude(attrs, context) {
-    const file = path.resolve(path.join(this.options.path, attrs.file))
+  async renderInclude({attrs}, context) {
+    const file = path.resolve(path.join(path.dirname(this.options.filename), attrs.file))
     return await render(file, context, {
       ...this.options,
-      path: path.dirname(file)
+      filename: file
     })
   }
 }
@@ -377,7 +399,7 @@ async function render(filename, context, options) {
   })
 
   const engine = new Engine(buffer.toString('utf-8'), context, {
-    path: path.dirname(filename),
+    filename: filename,
     ...options
   })
   return await engine.render()

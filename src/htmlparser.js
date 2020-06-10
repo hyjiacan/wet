@@ -24,18 +24,30 @@ class Entity {
    */
   _state
   /**
+   * 此项的起始行号
+   * @type {number}
+   */
+  _lineNumber = 0
+
+  /**
    * @type {string}
    */
   get state() {
     return this._state
   }
 
+  get lineNumber() {
+    return this._lineNumber
+  }
+
   /**
    *
    * @param {string} data
+   * @param startLineNumber
    */
-  constructor(data) {
+  constructor(data, startLineNumber) {
     this.data = data
+    this._lineNumber = startLineNumber
     this.type = this._getEntityType(data)
     if (this.type !== NODE_TYPES.ELEMENT_NODE) {
       return
@@ -103,6 +115,7 @@ class Node {
   _attrs = {}
   _closed = false
   _index = 0
+  _line = 0
   /**
    * @type {Node}
    */
@@ -118,6 +131,7 @@ class Node {
     }
     this._raw = entity.data
     this._type = entity.type
+    this._line = entity.lineNumber
     this._isElement = entity.type === NODE_TYPES.ELEMENT_NODE
 
     if (this.isElement) {
@@ -147,7 +161,7 @@ class Node {
 
     // 读取属性，移除末尾的 > 符号和换行符
     const attrText = entity.data.substring(tagName.length + 1).replace(/\/?[>\r\n]+$/, '')
-    const attrReg = /(?<name>[^\s=]+)(=(?<value>[\S]*))?/ig
+    const attrReg = /(?<name>[^\s=]+)(=(['"]?)(?<value>[\S]*)\3)?/ig
 
     let match
     while (true) {
@@ -230,6 +244,14 @@ class Node {
 
   /**
    *
+   * @return {number}
+   */
+  get line() {
+    return this._line
+  }
+
+  /**
+   *
    * @return {Node[]}
    */
   get children() {
@@ -301,11 +323,11 @@ class Node {
    * @return {Node}
    */
   get prevElement() {
-    const next = this.next
-    if (next.isElement) {
-      return next
+    const prev = this.prev
+    if (prev.isElement) {
+      return prev
     }
-    return next.next
+    return prev.prev
   }
 
   /**
@@ -331,7 +353,6 @@ function getPlaceholder() {
  * @param content
  */
 function preProcess(content) {
-  console.time(arguments.callee.name)
   content = content
     .replace(/\\./g, (input) => {
       // 处理 转义字符
@@ -339,12 +360,12 @@ function preProcess(content) {
       PLACEHOLDERS[p] = input
       return p
     })
-    .replace(/<(style|script)[\s\S]+?<\/\1>/ig, (input) => {
-      // 处理 style 和 script 标签
-      const p = getPlaceholder()
-      PLACEHOLDERS[p] = input
-      return p
-    })
+    // .replace(/<(style|script)[\s\S]+?<\/\1>/ig, (input) => {
+    //   // 处理 style 和 script 标签
+    //   const p = getPlaceholder()
+    //   PLACEHOLDERS[p] = input
+    //   return p
+    // })
     .replace(/<(link|meta)[\s\S]+?>/ig, (input) => {
       // 处理 link 和 meta 标签
       const p = getPlaceholder()
@@ -360,15 +381,14 @@ function preProcess(content) {
       // 处理 html 属性值
       const p = getPlaceholder()
       PLACEHOLDERS[p] = value
-      return `=${p}`
+      return `=${quote}${p}${quote}`
     })
-  console.timeEnd(arguments.callee.name)
   return content
 }
 
-function getNextEntity(content, offset) {
+function getNextEntity(content, offset, rowIndex) {
   const buffer = []
-
+  let rowCount = 0
   let ltFound = false
 
   for (let i = offset; i < content.length; i++) {
@@ -392,10 +412,17 @@ function getNextEntity(content, offset) {
       }
     }
 
+    if (char === '\n') {
+      rowCount++
+    }
+
     buffer.push(char)
   }
 
-  return new Entity(buffer.join(''))
+  return {
+    rowCount,
+    entity: new Entity(buffer.join(''), rowIndex + rowCount)
+  }
 }
 
 /**
@@ -413,8 +440,11 @@ function parse(content) {
   const contentLength = content.length
   let index = 0
 
+  let rowIndex = 1
+
   while (index < contentLength) {
-    const entity = getNextEntity(content, index)
+    const {entity, rowCount} = getNextEntity(content, index, rowIndex)
+    rowIndex += rowCount
     index += entity.data.length
     const node = new Node(entity)
 
