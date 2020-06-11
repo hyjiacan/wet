@@ -208,7 +208,7 @@ class Node {
 
   /**
    *
-   * @param {boolean} includeChildren 是否包含子元素
+   * @param {boolean} [includeChildren=false] 是否包含子元素
    * @return {string}
    */
   toString(includeChildren) {
@@ -360,24 +360,29 @@ function preProcess(content) {
       PLACEHOLDERS[p] = input
       return p
     })
-    // .replace(/<(style|script)[\s\S]+?<\/\1>/ig, (input) => {
-    //   // 处理 style 和 script 标签
+    .replace(/<(style|script)[\s\S]+?<\/\1>/ig, (input) => {
+      return input.split('\n').map(line => {
+        // 处理 style 和 script 标签
+        const p = getPlaceholder()
+        PLACEHOLDERS[p] = line
+        return p
+      }).join('\n')
+    })
+    // .replace(/<(link|meta)[\s\S]+?>/ig, (input) => {
+    //   // 处理 link 和 meta 标签
     //   const p = getPlaceholder()
     //   PLACEHOLDERS[p] = input
     //   return p
     // })
-    .replace(/<(link|meta)[\s\S]+?>/ig, (input) => {
-      // 处理 link 和 meta 标签
-      const p = getPlaceholder()
-      PLACEHOLDERS[p] = input
-      return p
-    })
-    .replace(/{{[\s\S]+?}}/g, (input) => {
+    .replace(/{{[\s\S]+?}}/g, input => {
       // 处理 模板表达式
-      const p = getPlaceholder()
-      PLACEHOLDERS[p] = input
-      return p
-    }).replace(/=\s*(['"])([\s\S]*?)\1/g, (input, quote, value) => {
+      return input.split('\n').map(line => {
+        const p = getPlaceholder()
+        PLACEHOLDERS[p] = line
+        return p
+      }).join('\n')
+    })
+    .replace(/=\s*(['"])([\s\S]*?)\1/g, (input, quote, value) => {
       // 处理 html 属性值
       const p = getPlaceholder()
       PLACEHOLDERS[p] = value
@@ -421,7 +426,9 @@ function getNextEntity(content, offset, rowIndex) {
 
   return {
     rowCount,
-    entity: new Entity(buffer.join(''), rowIndex + rowCount)
+    // 如果有换行，那么此项的行号仅需要+1（不管多少行，行号始终表示起始行）
+    // 如果没有换行，就 +0 (保持不变)
+    entity: new Entity(buffer.join(''), rowIndex + (rowCount ? 1 : 0))
   }
 }
 

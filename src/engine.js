@@ -65,8 +65,9 @@ function getObjectValue(obj, valueNames) {
 }
 
 function resolveExpression(content, context) {
-  return content.replace(/{{2}(.+?)}{2}/g, (input, exp) => {
-    return getObjectValue(context, exp)
+  return content.replace(/{{2}([\s\S]+?)}{2}/g, (input, exp) => {
+    // 移除表达式前后的空白字符
+    return getObjectValue(context, exp.trim())
   })
 }
 
@@ -76,20 +77,31 @@ ${children}
 <!-- ${tag.toUpperCase()} END -->`
 }
 
-function raiseTemplateError(options, node, message) {
-  const prevElement = node.prevElement
-  const nextElement = node.nextElement
-  const prev = prevElement ? `\t   ${prevElement.toString()}\n` : ''
-  const next = nextElement ? `\n\t   ${nextElement.toString()}` : ''
-  throw new ParseError(`${message}
+function fillChars() {
+
+}
+
+function raiseTemplateError(options, node, e) {
+  let msg
+  let level = 0
+  if (e instanceof ParseError) {
+    level = e.level + 1
+    msg = `${e.message}
+\t${' '.padStart(level * 2, ' ')}${node.line}: ${node.raw.trim()}`
+  } else {
+    msg = `${e.message}
 \t${options.filename}:${node.line}
-${prev}\t-> ${node.raw}${next}\n`)
+\t${node.line}: ${node.raw.trim()}
+\t${''.padStart(node.line.toString().length + 2, ' ')}${''.padStart(node.raw.trim().length, '^')}`
+  }
+  throw new ParseError(msg, level)
 }
 
 class ParseError extends Error {
-  constructor(message) {
+  constructor(message, level) {
     super(message)
     this.name = 'ParseError'
+    this.level = level || 0
   }
 }
 
@@ -178,11 +190,7 @@ class Engine {
       const parsedAttrs = resolveExpression(node.attrsString, context)
       return `<${tag}${parsedAttrs}>${childrenElements.join('')}</${tag}>`
     } catch (e) {
-      if (e instanceof ParseError) {
-        throw e
-      } else {
-        raiseTemplateError(this.options, node, e.message)
-      }
+      raiseTemplateError(this.options, node, e)
     }
   }
 
