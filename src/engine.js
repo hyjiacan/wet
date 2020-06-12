@@ -9,7 +9,7 @@ const htmlParser = require('./htmlparser')
 // htmlparser 解析出的树缓存
 const DOM_CACHE = {}
 
-// 允许的标签
+// 模板标签
 const TAGS = {
   IF: 't-if',
   ELSE: 't-else',
@@ -77,10 +77,6 @@ ${children}
 <!-- ${tag.toUpperCase()} END -->`
 }
 
-function fillChars() {
-
-}
-
 function raiseTemplateError(options, node, e) {
   let msg
   let level = 0
@@ -127,7 +123,6 @@ class Engine {
   }
 
   async render() {
-    // TODO 把耗时写入 context 中，和其它的表达式一样的用法
     const start = new Date().getTime()
     const dom = this.parseDOM(this.content, this.options.cache)
     const html = await Promise.all(dom.map(async element => {

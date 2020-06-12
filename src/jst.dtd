@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE DSTTAGS [
+        <!ELEMENT T-FOR () -- loop -->
+        <!ATTLIST T-FOR on CDATA #REQUIRED>
+
+        <!ELEMENT T-TREE (T-CHILDREN) -- tree -->
+        <!ATTLIST T-TREE on CDATA #REQUIRED>
+
+        <!ELEMENT T-CHILDREN EMPTY -- tree: children -->
+        <!ATTLIST T-CHILDREN field CDATA #IMPLIED "children">
+
+        <!ELEMENT T-IF () -- condition: if -->
+        <!ATTLIST T-IF on CDATA #REQUIRED>
+
+        <!ELEMENT T-ELIF () -- condition: else if -->
+        <!ATTLIST T-ELIF on CDATA #REQUIRED>
+
+        <!ELEMENT T-ELSE () -- condition: else -->
+
+        <!ELEMENT T-WITH () -- variable or expression alias -->
+
+        <!ELEMENT T-INCLUDE EMPTY -- condition -->
+        <!ATTLIST T-INCLUDE file CDATA #REQUIRED>
+        ]>

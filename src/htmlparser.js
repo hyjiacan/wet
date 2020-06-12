@@ -149,13 +149,13 @@ class Node {
    */
   _resolve(entity) {
     if (entity.state === 'close') {
-      const [_, tagName] = /^<\/([^\/>]+)>$/.exec(entity.data)
+      const tagName = /^<\/([^\/>]+)>$/.exec(entity.data)[1]
       // 属性名称中可能包含变量
       this._tag = decode(tagName)
       return
     }
 
-    const [_, tagName] = /^<([^\s\/>]+)/.exec(entity.data)
+    const tagName = /^<([^\s\/>]+)/.exec(entity.data)[1]
     // 属性名称中可能包含变量
     this._tag = decode(tagName)
 
