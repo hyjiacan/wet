@@ -83,12 +83,12 @@ function raiseTemplateError(options, node, e) {
   if (e instanceof ParseError) {
     level = e.level + 1
     msg = `${e.message}
-\t${' '.padStart(level * 2, ' ')}${node.line}: ${node.raw.trim()}`
+\t${node.line.toString().padStart(5, ' ')}:${''.padStart(level, ' ')} ${node.raw.trim()}`
   } else {
     msg = `${e.message}
 \t${options.filename}:${node.line}
-\t${node.line}: ${node.raw.trim()}
-\t${''.padStart(node.line.toString().length + 2, ' ')}${''.padStart(node.raw.trim().length, '^')}`
+\t${node.line.toString().padStart(5, ' ')}: ${node.raw.trim()}
+\t${''.padStart(node.line.toString().padStart(5, ' ').length + 2, ' ')}${''.padStart(node.raw.trim().length, '^')}`
   }
   throw new ParseError(msg, level)
 }
