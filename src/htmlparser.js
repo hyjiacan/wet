@@ -12,24 +12,6 @@ const NODE_TYPES = {
 
 class Entity {
   /**
-   * @type {NODE_TYPES}
-   */
-  type
-  /**
-   * @type {string}
-   */
-  data
-  /**
-   * @type {string}
-   */
-  _state
-  /**
-   * 此项的起始行号
-   * @type {number}
-   */
-  _lineNumber = 0
-
-  /**
    * @type {string}
    */
   get state() {
@@ -96,36 +78,13 @@ function decode(text, remove) {
 class Node {
   /**
    *
-   * @type {Node[]}
-   */
-  _children = []
-  _raw = ''
-  _isElement = false
-  /**
-   * @type {NODE_TYPES}
-   */
-  _type
-  /**
-   * @type {string}
-   */
-  _tag = ''
-  /**
-   * @type {{}}
-   */
-  _attrs = {}
-  _closed = false
-  _index = 0
-  _line = 0
-  /**
-   * @type {Node}
-   */
-  _parent = null
-
-  /**
-   *
    * @param {Entity} [entity]
    */
   constructor(entity) {
+    this._children = []
+    this._attrs = {}
+    this._parent = null
+
     if (!entity) {
       return
     }

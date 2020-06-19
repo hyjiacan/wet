@@ -102,9 +102,6 @@ class ParseError extends Error {
 }
 
 class Engine {
-  // 用于渲染树的节点缓存
-  TREE_CACHE = {}
-
   /**
    *
    * @param content
@@ -114,6 +111,8 @@ class Engine {
    * @param {boolean} [options.filename] 模板文件路径
    */
   constructor(content, context, options) {
+    // 用于渲染树的节点缓存
+    this.TREE_CACHE = {}
     this.content = content
     this.context = context
     this.options = {
