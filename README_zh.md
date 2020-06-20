@@ -100,7 +100,7 @@ const context = {
   },
   visible: false
 }
-jst.render('./demo.html', context, {cache: true})
+wet.render('./demo.html', context, {cache: true})
 ```
 
 `context` 必须是对象，不能是数组

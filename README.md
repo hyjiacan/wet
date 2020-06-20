@@ -96,7 +96,7 @@ const context = {
   },
   visible: false
 }
-jst.render('./demo.html', context, {cache: true})
+wet.render('./demo.html', context, {cache: true})
 ```
 
 `context` must be a `Object`, must not be an `Array`
