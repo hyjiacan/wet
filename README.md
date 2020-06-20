@@ -1,6 +1,8 @@
-# jst
+# wet
 
-`jst` is a simple template engine based on ES6, with no 3rd-part dependency.
+`wet`: Short from `WEb Template`
+
+`wet` is a simple server-end WEB template engine based on ES6, with no 3rd-part dependency.
 
 ## Features
 

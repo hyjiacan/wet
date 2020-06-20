@@ -1,12 +1,12 @@
 {
-  "name": "jst",
+  "name": "wet",
   "version": "0.2.0",
-  "description": "Simple Javascript Template Engine",
+  "description": "Simple Server-end Web Template Engine based on NodeJS",
   "main": "src/engine.js",
   "scripts": {
     "test": "node test.js"
   },
-  "repository": "https://gitee.com/hyjiacan/jst.git",
+  "repository": "https://github.com/hyjiacan/wet.git",
   "author": "hyjiacan <hyjiacan@163.com>",
   "license": "MIT"
 }

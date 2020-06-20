@@ -1,6 +1,8 @@
-# jst
+# wet
 
-`jst` 是一个基于 ES6 的简易 WEB 模板引擎，完全没有第三方依赖。
+`wet` 简写自 `WEb Template`
+
+`wet` 是一个基于 ES6 的简易服务器端 WEB 模板引擎，完全没有第三方依赖。
 
 ## Features
 
