@@ -18,7 +18,8 @@ const TAGS = {
   WITH: 't-with',
   TREE: 't-tree',
   CHILDREN: 't-children',
-  INCLUDE: 't-include'
+  INCLUDE: 't-include',
+  HTML: 't-html'
 }
 
 /**
@@ -55,19 +56,28 @@ function runForIn(context, varName, dataName) {
 }
 
 /**
- * 从对象中获取值
- * @param obj
- * @param valueNames
+ * 从上下文中计算表达式的值
+ * @param context
+ * @param expression
  * @return {*}
  */
-function getObjectValue(obj, valueNames) {
-  return runCode(`return ${valueNames}`, obj)
+function getExpressionValue(context, expression) {
+  return runCode(`return ${expression}`, context)
 }
 
 function resolveExpression(content, context) {
   return content.replace(/{{2}([\s\S]+?)}{2}/g, (input, exp) => {
     // 移除表达式前后的空白字符
-    return getObjectValue(context, exp.trim())
+    let value = getExpressionValue(context, exp.trim())
+    if (typeof value === 'object' && value.constructor && value.constructor.name === 'Object') {
+      value = JSON.stringify(value)
+    }
+    // 保持原数据，用于 t-html 的渲染
+    if (context.__useRawHTML) {
+      return value
+    }
+    // 避免注入脚本
+    return value.replace(/</g, '&lt;').replace(/>/g, '&gt;')
   })
 }
 
@@ -122,13 +132,11 @@ class Engine {
   }
 
   async render() {
-    const start = new Date().getTime()
     const dom = this.parseDOM(this.content, this.options.cache)
     const html = await Promise.all(dom.map(async element => {
       return await this.parseElement(element, this.context)
     }))
-    const end = new Date().getTime()
-    return html.join('').replace('@{timestamp}@', (end - start).toString())
+    return html.join('')
   }
 
   async parseElement(node, context) {
@@ -178,6 +186,10 @@ class Engine {
 
       if (tag === TAGS.INCLUDE) {
         return renderTemplateTag(node, await this.renderInclude(node, context))
+      }
+
+      if (tag === TAGS.HTML) {
+        return renderTemplateTag(node, await this.renderHTML(node, context))
       }
 
       const childrenElements = children ? await Promise.all(children.map(async child => await this.parseElement(child, context))) : []
@@ -248,7 +260,7 @@ class Engine {
   async renderCondition(node, context) {
     const {attrs, children} = node
     const expression = attrs.on
-    const result = getObjectValue(context, expression)
+    const result = getExpressionValue(context, expression)
 
     // 给否则条件设置值
     const nextNode = node.nextElement
@@ -393,9 +405,23 @@ class Engine {
       filename: file
     })
   }
+
+  /**
+   *
+   * @param children
+   * @param context
+   * @return {*}
+   */
+  async renderHTML({children}, context) {
+    return await this.parseChildren(children, {
+      ...context,
+      __useRawHTML: true
+    })
+  }
 }
 
 async function render(filename, context, options) {
+  const start = process.hrtime()
   const buffer = await util.promisify(fs.readFile)(filename, {
     flag: 'r'
   })
@@ -404,7 +430,9 @@ async function render(filename, context, options) {
     filename: filename,
     ...options
   })
-  return await engine.render()
+  const result = await engine.render()
+  const [ms, ns] = process.hrtime(start)
+  return result.replace('@{timestamp}@', (ms + (ns / 1e9)).toFixed(6))
 }
 
 module.exports = {

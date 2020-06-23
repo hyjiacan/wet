@@ -41,6 +41,10 @@ Provide include supported for another template file: `<t-include file="./another
 
 Attribute `file` specify where the template located, And should be a relative path (based on current template file path)
 
+### `t-html`
+
+Provide a method to render with the raw html: `<t-html>{{'{{exp}}<p></p>{{exp}}'}}</t-html>`.
+
 ### `{{}}`
 
 Expression: `{{var}}`, `{{obj.prop.value}}`, `{{a - b}}`
