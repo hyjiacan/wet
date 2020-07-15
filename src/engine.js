@@ -5,6 +5,7 @@ const fs = require('fs')
 const path = require('path')
 const util = require('util')
 const htmlParser = require('./htmlparser')
+const runner = require('./coderunner')
 
 // htmlparser 解析出的树缓存
 const DOM_CACHE = {}
@@ -22,63 +23,22 @@ const TAGS = {
   HTML: 't-html'
 }
 
-/**
- * 运行动态代码
- * @param code
- * @param context
- * @return {*}
- */
-function runCode(code, context) {
-  return new Function(`{${Object.keys(context).join(',')}}`, code)(context)
-}
-
-/**
- * 数组迭代
- */
-function runForOf(context, varName, dataName) {
-  return runCode(`return ${dataName}.map(item => item)`, context)
-}
-
-/**
- * 对象迭代
- */
-function runForIn(context, varName, dataName) {
-  return runCode(`
-  const data = []
-  for(const key in ${dataName}) {
-    const value = ${dataName}[key]
-    data.push({
-      key,
-      value
-    })
-  }
-  return data`, context)
-}
-
-/**
- * 从上下文中计算表达式的值
- * @param context
- * @param expression
- * @return {*}
- */
-function getExpressionValue(context, expression) {
-  return runCode(`return ${expression}`, context)
-}
-
 function resolveExpression(content, context) {
-  return content.replace(/{{2}([\s\S]+?)}{2}/g, (input, exp) => {
-    // 移除表达式前后的空白字符
-    let value = getExpressionValue(context, exp.trim())
-    if (typeof value === 'object' && value.constructor && value.constructor.name === 'Object') {
-      value = JSON.stringify(value)
-    }
-    // 保持原数据，用于 t-html 的渲染
-    if (context.__useRawHTML) {
-      return value
-    }
-    // 避免注入脚本
-    return value.replace(/</g, '&lt;').replace(/>/g, '&gt;')
-  })
+  return content
+    // 解析表达式
+    .replace(/{{2}([\s\S]+?)}{2}/g, (input, exp) => {
+      // 移除表达式前后的空白字符
+      let value = runner.getExpressionValue(context, exp.trim())
+      if (typeof value === 'object' && value.constructor && value.constructor.name === 'Object') {
+        value = JSON.stringify(value)
+      }
+      // 保持原数据，用于 t-html 的渲染
+      if (context.__useRawHTML) {
+        return value
+      }
+      // 避免注入脚本
+      return String(value).replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    })
 }
 
 function renderTemplateTag({tag}, children) {
@@ -93,12 +53,15 @@ function raiseTemplateError(options, node, e) {
   if (e instanceof ParseError) {
     level = e.level + 1
     msg = `${e.message}
-\t${node.line.toString().padStart(5, ' ')}:${''.padStart(level, ' ')} ${node.raw.trim()}`
+${node.line.toString().padStart(5, ' ')}:${''.padStart(level, ' ')} ${node.raw.trim()}`
   } else {
+    const lineNumber = node.line.toString()
+    const paddedLineNumber = lineNumber.padStart(5, ' ')
+    const raw = node.raw.trim()
     msg = `${e.message}
-\t${options.filename}:${node.line}
-\t${node.line.toString().padStart(5, ' ')}: ${node.raw.trim()}
-\t${''.padStart(node.line.toString().padStart(5, ' ').length + 2, ' ')}${''.padStart(node.raw.trim().length, '^')}`
+${options.filename}:${lineNumber}
+${paddedLineNumber}: ${raw}
+${''.padStart(paddedLineNumber.length + 2, ' ')}${''.padStart(raw.length, '^')}`
   }
   throw new ParseError(msg, level)
 }
@@ -133,10 +96,13 @@ class Engine {
 
   async render() {
     const dom = this.parseDOM(this.content, this.options.cache)
-    const html = await Promise.all(dom.map(async element => {
-      return await this.parseElement(element, this.context)
+    const html = await Promise.all(dom.map(element => {
+      return this.parseElement(element, this.context)
     }))
     return html.join('')
+      // 处理不需要被解析的 {{ }} 符号
+      .replace(/{!{/g, '{{')
+      .replace(/}!}/g, '}}')
   }
 
   async parseElement(node, context) {
@@ -192,7 +158,10 @@ class Engine {
         return renderTemplateTag(node, await this.renderHTML(node, context))
       }
 
-      const childrenElements = children ? await Promise.all(children.map(async child => await this.parseElement(child, context))) : []
+      let childrenElements = []
+      if (children) {
+        childrenElements = await Promise.all(children.map(async child => await this.parseElement(child, context)))
+      }
       const parsedAttrs = resolveExpression(node.attrsString, context)
       return `<${tag}${parsedAttrs}>${childrenElements.join('')}</${tag}>`
     } catch (e) {
@@ -240,9 +209,9 @@ class Engine {
 
     let loopContext
     if (operator === 'of') {
-      loopContext = runForOf(context, varName, dataName)
+      loopContext = runner.runForOf(context, varName, dataName)
     } else if (operator === 'in') {
-      loopContext = runForIn(context, varName, dataName)
+      loopContext = runner.runForIn(context, varName, dataName)
     }
 
     const result = []
@@ -252,7 +221,8 @@ class Engine {
         ...context,
         [varName]: item
       }
-      result.push(await this.parseChildren(children, itemContext))
+      const parsedChildren = await this.parseChildren(children, itemContext)
+      result.push(parsedChildren)
     }
     return result.join('')
   }
@@ -260,7 +230,7 @@ class Engine {
   async renderCondition(node, context) {
     const {attrs, children} = node
     const expression = attrs.on
-    const result = getExpressionValue(context, expression)
+    const result = runner.getExpressionValue(context, expression)
 
     // 给否则条件设置值
     const nextNode = node.nextElement
@@ -322,7 +292,7 @@ class Engine {
       hasKey = true
       const expression = attrs[varName]
 
-      alias[varName] = runCode(`return ${expression}`, context)
+      alias[varName] = runner.runCode(`return ${expression}`, context)
     }
 
     if (!hasKey) {
@@ -380,6 +350,13 @@ class Engine {
     return temp.join('')
   }
 
+  /**
+   *
+   * @param attrs
+   * @param [attrs.field=children]
+   * @param context
+   * @return {string|Promise<*>}
+   */
   renderChildren({attrs}, context) {
     const treeId = context.__tree_id__
     const field = attrs.field || 'children'

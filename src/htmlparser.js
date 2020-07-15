@@ -36,7 +36,7 @@ class Entity {
     }
     if (/^<\//.test(data)) {
       this._state = 'close'
-    } else if (/\/>$/.test(data)) {
+    } else if (/\/>$/.test(data) || /^<(link|input|meta)\s/i.test(data)) {
       this._state = 'self-close'
     } else {
       this._state = 'open'
@@ -327,12 +327,6 @@ function preProcess(content) {
         return p
       }).join('\n')
     })
-    // .replace(/<(link|meta)[\s\S]+?>/ig, (input) => {
-    //   // 处理 link 和 meta 标签
-    //   const p = getPlaceholder()
-    //   PLACEHOLDERS[p] = input
-    //   return p
-    // })
     .replace(/{{[\s\S]+?}}/g, input => {
       // 处理 模板表达式
       return input.split('\n').map(line => {

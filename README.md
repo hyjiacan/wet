@@ -49,6 +49,8 @@ Provide a method to render with the raw html: `<t-html>{{'{{exp}}<p></p>{{exp}}'
 
 Expression: `{{var}}`, `{{obj.prop.value}}`, `{{a - b}}`
 
+The form `{!{/}!}` makes the raw `{{/}}` output: `{{/}}`.
+
 ## Sample
 
 *demo.html*
