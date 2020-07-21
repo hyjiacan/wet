@@ -36,7 +36,7 @@ class Entity {
     }
     if (/^<\//.test(data)) {
       this._state = 'close'
-    } else if (/\/>$/.test(data) || /^<(link|input|meta)\s/i.test(data)) {
+    } else if (/\/>$/.test(data) || /^<(link|input|meta|img|hr)\s/i.test(data)) {
       this._state = 'self-close'
     } else {
       this._state = 'open'
