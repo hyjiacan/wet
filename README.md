@@ -8,7 +8,30 @@
 
 ### `t-for`
 
-Iterate array(`for..of`) and set(`for..in`): `<t-for on="item of list">`, `item` should be a valid identical symbol
+Iterate array(`for..of`) and set(`for..in`): 
+`<t-for on="item of list" step="1">`,
+`item` should be a valid identical symbol;
+`step` is a number to specify the step-length (takes effect on the array iterating only), default: `1`
+
+Also:
+
+```html
+<t-for on="value, key in obj" />
+<t-for on="item, index of arr" />
+<t-for on="item, index of 1-10" />
+```
+
+When iterating an array：
+
+`1-10` means iterating from 1 to 10. `0-10` can be `10`. 
+Cannot put any whitespace besides `-`. FYI, integer supported only.
+
+The boundary always included:
+
+- `1-10`: 1, 2, ..., 9, 10
+- `0-10`: 0, 1, ..., 9, 10
+- `10`: 0, 1, ..., 9, 10
+- `9`: 0, 1, ..., 9
 
 ### `t-if`
 

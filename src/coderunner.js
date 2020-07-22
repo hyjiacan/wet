@@ -11,25 +11,90 @@ module.exports = {
 
   /**
    * 数组迭代
+   * @param {Object} context
+   * @param {string} key
+   * @param {string} value
+   * @param {string} data
+   * @param {string} range
+   * @param {number} step
    */
-  runForOf(context, varName, dataName) {
-    return this.runCode(`return ${dataName}.map(item => item)`, context)
+  runForOf(context, {key, value, data, range, step}) {
+    if (range) {
+      let from
+      let to
+
+      if (/^[0-9]+$/.test(range)) {
+        // data 是数值
+        from = 0
+        to = parseInt(range)
+      } else {
+        // data 是范围
+        [from, to] = range.split('-').map(i => parseInt(i))
+      }
+      context = {
+        range: []
+      }
+      for (let i = from; i <= to; i++) {
+        context.range.push(i)
+      }
+      data = 'range'
+    }
+    if (key) {
+      return this.runCode(`
+    const data = []
+    for (let i = 0; i < ${data}.length; i+=${step}) {
+       const item = ${data}[i]
+      data.push({
+       ${key}: i,
+       ${value}: item
+      })
+    }
+    return data`, context)
+    }
+
+    return this.runCode(`
+    const data = []
+    for (let i = 0; i < ${data}.length; i+=${step}) {
+       const item = ${data}[i]
+       data.push({
+        ${value}: item
+       })
+    }
+    return data`, context)
   },
 
   /**
    * 对象迭代
+   * @param {Object} context
+   * @param {string} key
+   * @param {string} value
+   * @param {string} data
    */
-  runForIn(context, varName, dataName) {
+  runForIn(context, {key, value, data}) {
+    if (key) {
+      return this.runCode(`
+    const data = []
+    for(const key in ${data}) {
+      const value = ${data}[key]
+      data.push({
+        ${key}: key,
+        ${value}: value
+      })
+    }
+    return data`, context)
+    }
     return this.runCode(`
-  const data = []
-  for(const key in ${dataName}) {
-    const value = ${dataName}[key]
-    data.push({
-      key,
-      value
-    })
-  }
-  return data`, context)
+    const data = []
+    for(const key in ${data}) {
+      const value = ${data}[key]
+      data.push({
+        ${value}: {
+          key,
+          value
+        }
+      })
+    }
+    return data`, context)
   },
 
   /**

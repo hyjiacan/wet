@@ -201,17 +201,30 @@ class Engine {
       throw new Error('Missing attribute "on" for t-for')
     }
     const expression = attrs.on
-    const temp = expression.split(' ')
 
-    const varName = temp[0]
-    const operator = temp[1]
-    const dataName = temp[2]
+    const match = /^(?<value>[$0-9a-zA-Z_]+)(\s*,\s*(?<key>[$0-9a-zA-Z_]+))?\s+(?<operator>(of|in))\s+((?<data>[$a-zA-Z_][$0-9a-zA-Z_.]*)|(?<range>[0-9]+(-[0-9]+)?))$/.exec(expression)
+    if (!match) {
+      throw new Error(`Invalid v-for expression: ${expression}`)
+    }
+
+    const {value, key, operator, data, range} = match.groups
 
     let loopContext
     if (operator === 'of') {
-      loopContext = runner.runForOf(context, varName, dataName)
+      const step = parseInt(attrs.step) || 1
+      loopContext = runner.runForOf(context, {
+        value,
+        key,
+        data,
+        range,
+        step
+      })
     } else if (operator === 'in') {
-      loopContext = runner.runForIn(context, varName, dataName)
+      loopContext = runner.runForIn(context, {
+        value,
+        key,
+        data
+      })
     }
 
     const result = []
@@ -219,7 +232,7 @@ class Engine {
     for (const item of loopContext) {
       const itemContext = {
         ...context,
-        [varName]: item
+        ...item
       }
       const parsedChildren = await this.parseChildren(children, itemContext)
       result.push(parsedChildren)

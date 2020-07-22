@@ -6,6 +6,14 @@
   "scripts": {
     "test": "node test.js"
   },
+  "keywords": [
+    "html",
+    "parser",
+    "html parser",
+    "dom",
+    "xml",
+    "sax"
+  ],
   "repository": "https://github.com/hyjiacan/wet.git",
   "author": "hyjiacan <hyjiacan@163.com>",
   "license": "MIT"
