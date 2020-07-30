@@ -1,18 +1,21 @@
 {
   "name": "wet",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Simple Server-end Web Template Engine based on NodeJS",
   "main": "src/engine.js",
   "scripts": {
     "test": "node test.js"
   },
   "keywords": [
+    "wet",
     "html",
     "parser",
     "html parser",
     "dom",
     "xml",
-    "sax"
+    "sax",
+    "template",
+    "template engine",
   ],
   "repository": "https://github.com/hyjiacan/wet.git",
   "author": "hyjiacan <hyjiacan@163.com>",

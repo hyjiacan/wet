@@ -6,18 +6,18 @@
   <title>Index - {{name}}</title>
   <style type="text/css">
   .pkg-version {
-    background-color: #5f6371;
-    color: #ffffff;
-    padding: 2px 5px;
-    margin: 0 5px;
+      background-color: #5f6371;
+      color: #ffffff;
+      padding: 2px 5px;
+      margin: 0 5px;
   }
 
   table {
-    border-collapse: collapse;
+      border-collapse: collapse;
   }
 
   th, td {
-    border: 1px solid #5f6371;
+      border: 1px solid #5f6371;
   }
   </style>
 </head>
@@ -89,6 +89,14 @@
     </tr>
   </t-for>
 </table>
+<hr>
+<h3>t-include/t-hole/t-fill 示例</h3>
+<t-include file="extra.html">
+  <t-fill>里面的内容啊</t-fill>
+  <t-fill name="footer">
+    <p>这是底部的内容，在外面填充的</p>
+  </t-fill>
+</t-include>
 <hr>
 <div style="text-align: center">
   <span>Powered by {{name}}.</span>

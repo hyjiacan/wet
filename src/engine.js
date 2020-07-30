@@ -4,7 +4,7 @@ const crypto = require('crypto')
 const fs = require('fs')
 const path = require('path')
 const util = require('util')
-const htmlParser = require('./htmlparser')
+const {parse, NODE_TYPES} = require('./htmlparser')
 const runner = require('./coderunner')
 
 // htmlparser 解析出的树缓存
@@ -20,7 +20,9 @@ const TAGS = {
   TREE: 't-tree',
   CHILDREN: 't-children',
   INCLUDE: 't-include',
-  HTML: 't-html'
+  HTML: 't-html',
+  HOLE: 't-hole',
+  FILL: 't-fill'
 }
 
 function resolveExpression(content, context) {
@@ -105,58 +107,65 @@ class Engine {
       .replace(/}!}/g, '}}')
   }
 
+
+  /**
+   *
+   * @param {Node} node
+   * @param {Object} context
+   * @return {Promise<boolean|string>}
+   */
+  async renderTemplateTags(node, context) {
+    const tag = node.tag
+
+    switch (node.tag) {
+      case TAGS.FOR:
+        return renderTemplateTag(node, await this.renderFor(node, context))
+      case TAGS.IF:
+        return renderTemplateTag(node, await this.renderIf(node, context))
+      case TAGS.ELIF:
+        return renderTemplateTag(node, await this.renderElif(node, context))
+      case TAGS.ELSE:
+        return renderTemplateTag(node, await this.renderElse(node, context))
+      case TAGS.WITH:
+        return renderTemplateTag(node, await this.renderWith(node, context))
+      case TAGS.TREE:
+        return renderTemplateTag(node, await this.renderTree(node, context))
+      case TAGS.CHILDREN:
+        return this.renderChildren(node, context)
+      case TAGS.INCLUDE:
+        return renderTemplateTag(node, await this.renderInclude(node, context))
+      case TAGS.HTML:
+        return renderTemplateTag(node, await this.renderHTML(node, context))
+      case TAGS.HOLE:
+        return renderTemplateTag(node, await this.renderHole(node, context))
+      case TAGS.FILL:
+        throw new Error(`${TAGS.FILL} must be a child of ${TAGS.INCLUDE}`)
+      default:
+        return false
+    }
+  }
+
   async parseElement(node, context) {
     const {type, raw} = node
-    if (type === htmlParser.NODE_TYPES.DOCUMENT_TYPE_NODE) {
+    if (type === NODE_TYPES.DOCUMENT_TYPE_NODE) {
       return raw
     }
     try {
-      if (type === htmlParser.NODE_TYPES.TEXT_NODE ||
-        type === htmlParser.NODE_TYPES.COMMENT_NODE ||
-        type === htmlParser.NODE_TYPES.CDATA_SECTION_NODE) {
+      if (type === NODE_TYPES.TEXT_NODE ||
+        type === NODE_TYPES.COMMENT_NODE ||
+        type === NODE_TYPES.CDATA_SECTION_NODE) {
         // if (node.prev && isTemplateTag(node.prev) && /^\s*$/.test(raw)) {
         //   return ''
         // }
         return resolveExpression(raw, context)
       }
 
+      const result = await this.renderTemplateTags(node, context)
+      if (result !== false) {
+        return result
+      }
+
       const {tag, children} = node
-
-      if (tag === TAGS.FOR) {
-        return renderTemplateTag(node, await this.renderFor(node, context))
-      }
-
-      if (tag === TAGS.IF) {
-        return renderTemplateTag(node, await this.renderIf(node, context))
-      }
-
-      if (tag === TAGS.ELIF) {
-        return renderTemplateTag(node, await this.renderElif(node, context))
-      }
-
-      if (tag === TAGS.ELSE) {
-        return renderTemplateTag(node, await this.renderElse(node, context))
-      }
-
-      if (tag === TAGS.WITH) {
-        return renderTemplateTag(node, await this.renderWith(node, context))
-      }
-
-      if (tag === TAGS.TREE) {
-        return renderTemplateTag(node, await this.renderTree(node, context))
-      }
-
-      if (tag === TAGS.CHILDREN) {
-        return this.renderChildren(node, context)
-      }
-
-      if (tag === TAGS.INCLUDE) {
-        return renderTemplateTag(node, await this.renderInclude(node, context))
-      }
-
-      if (tag === TAGS.HTML) {
-        return renderTemplateTag(node, await this.renderHTML(node, context))
-      }
 
       let childrenElements = []
       if (children) {
@@ -171,14 +180,15 @@ class Engine {
 
   parseDOM(content, cache) {
     if (!cache) {
-      return htmlParser.parse(content)
+      // 调用 htmlParser.parse
+      return parse(content)
     }
     // 读取内容的md5
     const md5 = crypto.createHash('md5').update(content).digest('hex')
     if (DOM_CACHE.hasOwnProperty(md5)) {
       return DOM_CACHE[md5]
     }
-    return DOM_CACHE[md5] = htmlParser.parse(content)
+    return DOM_CACHE[md5] = parse(content)
   }
 
   async parseChildren(children, context) {
@@ -198,13 +208,13 @@ class Engine {
   async renderFor(node, context) {
     const {attrs, children} = node
     if (!attrs.hasOwnProperty('on')) {
-      throw new Error('Missing attribute "on" for t-for')
+      throw new Error(`Missing attribute "on" for ${TAGS.FOR}`)
     }
     const expression = attrs.on
 
     const match = /^(?<value>[$0-9a-zA-Z_]+)(\s*,\s*(?<key>[$0-9a-zA-Z_]+))?\s+(?<operator>(of|in))\s+((?<data>[$a-zA-Z_][$0-9a-zA-Z_.]*)|(?<range>[0-9]+(-[0-9]+)?))$/.exec(expression)
     if (!match) {
-      throw new Error(`Invalid v-for expression: ${expression}`)
+      throw new Error(`Invalid ${TAGS.FOR} expression: ${expression}`)
     }
 
     const {value, key, operator, data, range} = match.groups
@@ -261,18 +271,18 @@ class Engine {
 
   renderIf(node, context) {
     if (!node.attrs.hasOwnProperty('on')) {
-      throw new Error('Missing attribute "on" for t-if')
+      throw new Error(`Missing attribute "on" for ${TAGS.IF}`)
     }
     return this.renderCondition(node, context)
   }
 
   renderElif(node, context) {
     if (!node.attrs.hasOwnProperty('on')) {
-      throw new Error('Missing attribute "on" for t-elif')
+      throw new Error(`Missing attribute "on" for ${TAGS.ELIF}`)
     }
 
     if (!node.hasOwnProperty('__prev_condition_result__')) {
-      throw new Error('t-elif must behind t-if or t-elif')
+      throw new Error(`${TAGS.ELIF} must behind ${TAGS.IF} or ${TAGS.ELIF}`)
     }
 
     return this.renderCondition(node, context)
@@ -280,7 +290,7 @@ class Engine {
 
   async renderElse(node, context) {
     if (!node.hasOwnProperty('__prev_condition_result__')) {
-      throw new Error('t-else must behind t-if or t-elif')
+      throw new Error(`${TAGS.ELSE} must behind ${TAGS.IF} or ${TAGS.ELIF}`)
     }
 
     if (node.__prev_condition_result__) {
@@ -310,7 +320,7 @@ class Engine {
     }
 
     if (!hasKey) {
-      throw new Error('Must specify at least one attribute for t-with')
+      throw new Error(`Must specify at least one attribute for ${TAGS.WITH}`)
     }
 
     return await this.parseChildren(children, {
@@ -327,7 +337,7 @@ class Engine {
   renderTree(node, context) {
     const {attrs, children} = node
     if (!attrs.hasOwnProperty('on')) {
-      throw new Error('Missing attribute "on" for t-tree')
+      throw new Error(`Missing attribute "on" for ${TAGS.TREE}`)
     }
 
     const expression = attrs.on
@@ -335,7 +345,7 @@ class Engine {
     const [treeName, varName] = expression.split(' as ')
     let treeData = context[treeName]
     if (!Array.isArray(treeData)) {
-      throw new Error(`Data must be an Array for t-tree: ${treeName}`)
+      throw new Error(`Data must be an Array for ${TAGS.TREE}: ${treeName}`)
     }
 
     const treeId = `${new Date().getTime()}${Math.round(Math.random() * 1000)}`
@@ -366,8 +376,9 @@ class Engine {
 
   /**
    *
-   * @param attrs
-   * @param [attrs.field=children]
+   * @param {Node} node
+   * @param {Object} node.attrs
+   * @param {string} [node.attrs.field=children]
    * @param context
    * @return {string|Promise<*>}
    */
@@ -386,10 +397,40 @@ class Engine {
   /**
    *
    * @param attrs
+   * @param children
    * @param context
    * @return {*}
    */
-  async renderInclude({attrs}, context) {
+  async renderInclude({attrs, children}, context) {
+    // 避免污染父级
+    context = {
+      ...context,
+      // 存放 hole 的集合
+      __include_holes__: {},
+      // 存放 fill 的集合
+      __include_fills__: {}
+    }
+
+    // 收集 fills
+    await Promise.all(children.map(async child => {
+      const {attrs, tag, type, children} = child
+      if (type !== NODE_TYPES.ELEMENT_NODE) {
+        return
+      }
+      if (tag !== TAGS.FILL) {
+        raiseTemplateError(this.options, child, new Error(`${TAGS.INCLUDE} can only contain ${TAGS.FILL} as child`))
+      }
+      const name = attrs.name || ''
+      if (context.__include_fills__.hasOwnProperty(name)) {
+        if (name === '') {
+          raiseTemplateError(this.options, child, new Error(`Default ${TAGS.FILL} can only appear once`))
+        }
+        raiseTemplateError(this.options, child, new Error(`${TAGS.FILL} name must be unique: ${name}`))
+      }
+      context.__include_fills__[name] = null
+      context.__include_fills__[name] = await this.parseChildren(children, context)
+    }))
+
     const file = path.resolve(path.join(path.dirname(this.options.filename), attrs.file))
     return await render(file, context, {
       ...this.options,
@@ -399,7 +440,35 @@ class Engine {
 
   /**
    *
-   * @param children
+   * @param node
+   * @param context
+   * @return {*}
+   */
+  async renderHole(node, context) {
+    const {attrs, children} = node
+    // hole name
+    const name = attrs.name || ''
+    // 出现多次
+    if (context.__include_holes__.hasOwnProperty(name)) {
+      if (name === '') {
+        throw new Error(`Default ${TAGS.HOLE} can only appear once`)
+      }
+
+      throw new Error(`${TAGS.HOLE} name must be unique: ${name}`)
+    }
+
+    context.__include_holes__[name] = {}
+
+    if (context.__include_fills__[name]) {
+      return context.__include_fills__[name]
+    }
+    return this.parseChildren(children, context)
+  }
+
+  /**
+   *
+   * @param node
+   * @param node.children
    * @param context
    * @return {*}
    */
@@ -413,6 +482,8 @@ class Engine {
 
 async function render(filename, context, options) {
   const start = process.hrtime()
+  // 获取绝对路径
+  filename = path.resolve(filename)
   const buffer = await util.promisify(fs.readFile)(filename, {
     flag: 'r'
   })

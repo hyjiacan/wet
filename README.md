@@ -58,15 +58,46 @@ Render tree structure `<t-tree on="tree as item">`:
 
 And you should(must) use `<t-children field="children" />` to specify where to render the children nodes.
 
+### `t-html`
+
+Provide a method to render with the raw html: `<t-html>{{'{{exp}}<p></p>{{exp}}'}}</t-html>`.
+
 ### `t-include`
 
 Provide include supported for another template file: `<t-include file="./another.html" />`
 
 Attribute `file` specify where the template located, And should be a relative path (based on current template file path)
 
-### `t-html`
+`t-include` can only contain `t-fill` as child
 
-Provide a method to render with the raw html: `<t-html>{{'{{exp}}<p></p>{{exp}}'}}</t-html>`.
+### `t-hole`/`t-fill`
+
+`t-hole` leave a hole in the template file, to fill it when another file includes it.
+
+_a.html_
+```html
+<div>
+    <t-hole name="title">
+      <div>default content</div>
+    </t-hole>
+    <t-hole></t-hole>
+</div>
+```
+
+In the template file above, we got two holes. 
+One with a name `title`:`<t-hole name="title">`，and another without a name: `<t-hole>`
+
+No matter it has a name or not, hole name must be unique.
+
+_b.html_
+```html
+<t-include file="a.html">
+  <t-fill>Fill anonymous hole</t-fill>
+  <t-fill name="title">Fill named hole: title</t-fill>
+</t-include>
+```
+
+No matter it has a name or not, fill name must be unique.
 
 ### `{{}}`
 
@@ -76,7 +107,7 @@ The form `{!{/}!}` makes the raw `{{/}}` output: `{{/}}`.
 
 ## Sample
 
-*demo.html*
+_demo.html_
 
 ```html
 <div>

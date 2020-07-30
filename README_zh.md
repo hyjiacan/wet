@@ -62,15 +62,45 @@
 
 此标签标记子节点应该渲染的位置
 
+### `t-html`
+
+提供直接渲染HTML的方法：`<t-html>{{'{{exp}}<p></p>{{exp}}'}}</t-html>`.
+
 ### `t-include`
 
 包含功能支持 `<t-include file="./another.html" />`
 
 其属性 `file` 是一个相对文件路径，相对于当前文件的目录。
 
-### `t-html`
+在 `t-include` 下，只允许出现 `t-fill` 作为其子项。
 
-提供直接渲染HTML的方法：`<t-html>{{'{{exp}}<p></p>{{exp}}'}}</t-html>`.
+### `t-hole`/`t-fill`
+
+`t-hole` 在模板文件中预留 hole，以在模板文件被 `include` 时进行填充。
+
+_a.html_
+```html
+<div>
+    <t-hole name="title">
+      <div>默认内容</div>
+    </t-hole>
+    <t-hole></t-hole>
+</div>
+```
+
+在上面的模板文件中，定义了两个 `hole`。一个具名的 `title`: `<t-hole name="title">`，另一个是匿名的: `<t-hole>`
+
+不论是具名还是匿名，相同名称只能声明一次。
+
+_b.html_
+```html
+<t-include file="a.html">
+  <t-fill>填充匿名 hole</t-fill>
+  <t-fill name="title">填充具名 hole: title</t-fill>
+</t-include>
+```
+
+不论是具名还是匿名，相同名称只能填充一次。
 
 ### `{{}}`
 
@@ -80,7 +110,7 @@
 
 ## Sample
 
-*demo.html*
+_demo.html_
 
 ```html
 <div>
@@ -135,5 +165,3 @@ wet.render('./demo.html', context, {cache: true})
 `context` 必须是对象，不能是数组
 
 ## 开发计划
-
-- [ ] `<t-include>` 添加属性支持，以向 include 的文件传递数据
