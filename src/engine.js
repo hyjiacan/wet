@@ -243,12 +243,13 @@ class Engine {
   async renderCondition(node, context) {
     const {attrs, children} = node
     const expression = attrs.on
+
     const result = runner.getExpressionValue(context, expression)
 
     // 给否则条件设置值
     const nextNode = node.nextElement
     if (nextNode && (nextNode.tag === TAGS.ELSE || nextNode.tag === TAGS.ELIF)) {
-      nextNode.__condition__ = !result
+      nextNode.__prev_condition_result__ = node.__prev_condition_result__ || result
     }
 
     if (!result) {
@@ -270,19 +271,19 @@ class Engine {
       throw new Error('Missing attribute "on" for t-elif')
     }
 
-    if (!node.hasOwnProperty('__condition__')) {
-      throw new Error('t-elif must after t-if or t-elif')
+    if (!node.hasOwnProperty('__prev_condition_result__')) {
+      throw new Error('t-elif must behind t-if or t-elif')
     }
 
     return this.renderCondition(node, context)
   }
 
   async renderElse(node, context) {
-    if (!node.hasOwnProperty('__condition__')) {
-      throw new Error('t-else must after t-if or t-elif')
+    if (!node.hasOwnProperty('__prev_condition_result__')) {
+      throw new Error('t-else must behind t-if or t-elif')
     }
 
-    if (!node.__condition__) {
+    if (node.__prev_condition_result__) {
       return '<!-- FALSE -->'
     }
 
