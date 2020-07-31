@@ -1,6 +1,6 @@
 {
-  "name": "wet",
-  "version": "0.5.1",
+  "name": "@hyjiacan/wet",
+  "version": "0.5.2",
   "description": "Simple Server-end Web Template Engine based on NodeJS",
   "main": "src/engine.js",
   "scripts": {
@@ -19,5 +19,15 @@
   ],
   "repository": "https://github.com/hyjiacan/wet.git",
   "author": "hyjiacan <hyjiacan@163.com>",
-  "license": "MIT"
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.com"
+  },
+  "files": [
+    "src",
+    "LICENSE",
+    "README.md",
+    "README_zh.md"
+  ]
 }

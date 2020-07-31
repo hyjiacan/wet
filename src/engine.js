@@ -131,7 +131,7 @@ class Engine {
       case TAGS.TREE:
         return renderTemplateTag(node, await this.renderTree(node, context))
       case TAGS.CHILDREN:
-        return this.renderChildren(node, context)
+        return this.prepareTreeChildren(node, context)
       case TAGS.INCLUDE:
         return renderTemplateTag(node, await this.renderInclude(node, context))
       case TAGS.HTML:
@@ -334,7 +334,7 @@ class Engine {
    * @param node
    * @param context
    */
-  renderTree(node, context) {
+  async renderTree(node, context) {
     const {attrs, children} = node
     if (!attrs.hasOwnProperty('on')) {
       throw new Error(`Missing attribute "on" for ${TAGS.TREE}`)
@@ -355,7 +355,7 @@ class Engine {
       varName
     }
 
-    const result = this.renderTreeChildren(treeData, treeId, context)
+    const result = await this.renderTreeChildren(treeData, treeId, context)
 
     delete this.TREE_CACHE[treeId]
 
@@ -382,7 +382,7 @@ class Engine {
    * @param context
    * @return {string|Promise<*>}
    */
-  renderChildren({attrs}, context) {
+  prepareTreeChildren({attrs}, context) {
     const treeId = context.__tree_id__
     const field = attrs.field || 'children'
     const {varName} = this.TREE_CACHE[treeId]
@@ -427,13 +427,6 @@ class Engine {
           raiseTemplateError(this.options, child, new Error(`Default ${TAGS.FILL} can only appear once`))
         }
         raiseTemplateError(this.options, child, new Error(`${TAGS.FILL} name must be unique: ${name}`))
-      }
-      // 未定义对应的 hole
-      if (!context.__include_holes__.hasOwnProperty(name)) {
-        if (name === '') {
-          raiseTemplateError(this.options, child, new Error(`Default ${TAGS.FILL} not found in template file: ${file}`))
-        }
-        raiseTemplateError(this.options, child, new Error(`${TAGS.FILL}[name=${name}] not found in template file: ${file}`))
       }
       context.__include_fills__[name] = null
       context.__include_fills__[name] = await this.parseChildren(children, context)
