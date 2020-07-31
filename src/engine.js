@@ -410,6 +410,7 @@ class Engine {
       // 存放 fill 的集合
       __include_fills__: {}
     }
+    const file = path.resolve(path.join(path.dirname(this.options.filename), attrs.file))
 
     // 收集 fills
     await Promise.all(children.map(async child => {
@@ -427,11 +428,17 @@ class Engine {
         }
         raiseTemplateError(this.options, child, new Error(`${TAGS.FILL} name must be unique: ${name}`))
       }
+      // 未定义对应的 hole
+      if (!context.__include_holes__.hasOwnProperty(name)) {
+        if (name === '') {
+          raiseTemplateError(this.options, child, new Error(`Default ${TAGS.FILL} not found in template file: ${file}`))
+        }
+        raiseTemplateError(this.options, child, new Error(`${TAGS.FILL}[name=${name}] not found in template file: ${file}`))
+      }
       context.__include_fills__[name] = null
       context.__include_fills__[name] = await this.parseChildren(children, context)
     }))
 
-    const file = path.resolve(path.join(path.dirname(this.options.filename), attrs.file))
     return await render(file, context, {
       ...this.options,
       filename: file
