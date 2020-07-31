@@ -35,7 +35,7 @@ The boundary always included:
 
 ### `t-if`
 
-Condition: `<t-if on="condition">`, `condition` can be a expression or variable
+Condition: `<t-if on="condition">`, `condition` can be an expression or variable
 
 ### `t-else`
 
@@ -56,7 +56,7 @@ Render tree structure `<t-tree on="tree as item">`:
 - `tree` is a field of context, should b e an Array (in order to support for multiple root nodes)
 - `item` is the variable name in the scope
 
-And you should(must) use `<t-children field="children" />` to specify where to render the children nodes.
+You should(must) use `<t-children field="children" />` to specify where to render the children nodes.
 
 ### `t-html`
 
