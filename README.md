@@ -1,6 +1,6 @@
 # wet
 
-`wet`: Short from `WEb Template`
+`wet`: `WEb Template`
 
 `wet` is a simple server-end WEB template engine based on ES6, with no 3rd-part dependency.
 
@@ -8,9 +8,9 @@
 
 ### `t-for`
 
-Iterate array(`for..of`) and set(`for..in`): 
+Iterating array(`for..of`) and set(`for..in`): 
 `<t-for on="item of list" step="1">`,
-`item` should be a valid identical symbol;
+`item` should be a valid identifier;
 `step` is a number to specify the step-length (takes effect on the array iterating only), default: `1`
 
 Also:
@@ -43,11 +43,11 @@ Condition: `<t-else>`
 
 ### `t-elif`
 
-Condition`<t-elif on="condition">`, `condition` can be a expression or variable
+Condition`<t-elif on="condition">`, `condition` can be an expression or variable
 
 ### `t-with`
 
-Make a scope `<t-with varName="a.b.c">`, `varName` equals the value of `a.b.c`,  `varName` should be a valid identical symbol
+Make a scope `<t-with varName="a.b.c">`, `varName` equals the value of `a.b.c`,  `varName` should be a valid identifier
 
 ### `t-tree`
 
@@ -64,7 +64,7 @@ Provide a method to render with the raw html: `<t-html>{{'{{exp}}<p></p>{{exp}}'
 
 ### `t-include`
 
-Provide include supported for another template file: `<t-include file="./another.html" />`
+Provide to import an external template file: `<t-include file="./another.html" />`
 
 Attribute `file` specify where the template located, And should be a relative path (based on current template file path)
 
