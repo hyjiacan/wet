@@ -4,6 +4,16 @@
 
 `wet` is a simple server-end WEB template engine based on ES6, with no 3rd-part dependency.
 
+Github: https://github.com/hyjiacan/wet
+
+Gitee: https://gitee.com/hyjiacan/wet
+
+npm: https://www.npmjs.com/package/@hyjiacan/wet
+
+```shell
+npm i @hyjiacan/wet
+```
+
 ## Features
 
 ### `t-for`
