@@ -82,7 +82,7 @@ class Node {
    */
   constructor(entity) {
     this._children = []
-    this._attrs = {}
+    this._attrs = Object.create(null)
     this._parent = null
 
     if (!entity) {
@@ -298,7 +298,7 @@ class Node {
   }
 }
 
-const PLACEHOLDERS = {}
+const PLACEHOLDERS = Object.create(null)
 let placeholderIndex = 0
 
 function getPlaceholder() {

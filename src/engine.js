@@ -8,7 +8,7 @@ const {parse, NODE_TYPES} = require('./htmlparser')
 const runner = require('./coderunner')
 
 // htmlparser 解析出的树缓存
-const DOM_CACHE = {}
+const DOM_CACHE = Object.create(null)
 
 // 模板标签
 const TAGS = {
@@ -87,7 +87,7 @@ class Engine {
    */
   constructor(content, context, options) {
     // 用于渲染树的节点缓存
-    this.TREE_CACHE = {}
+    this.TREE_CACHE = Object.create(null)
     this.content = content
     this.context = context
     this.options = {
@@ -185,7 +185,7 @@ class Engine {
     }
     // 读取内容的md5
     const md5 = crypto.createHash('md5').update(content).digest('hex')
-    if (DOM_CACHE.hasOwnProperty(md5)) {
+    if (md5 in DOM_CACHE) {
       return DOM_CACHE[md5]
     }
     return DOM_CACHE[md5] = parse(content)
@@ -207,11 +207,19 @@ class Engine {
    */
   async renderFor(node, context) {
     const {attrs, children} = node
-    if (!attrs.hasOwnProperty('on')) {
+    if (!('on' in attrs)) {
       throw new Error(`Missing attribute "on" for ${TAGS.FOR}`)
     }
     const expression = attrs.on
 
+    // array:
+    // for item of array
+    // for item, index of array
+    // for item of 10
+    // for item of 1-10
+    // object:
+    // for item in object
+    // for value, key in object
     const match = /^(?<value>[$0-9a-zA-Z_]+)(\s*,\s*(?<key>[$0-9a-zA-Z_]+))?\s+(?<operator>(of|in))\s+((?<data>[$a-zA-Z_][$0-9a-zA-Z_.]*)|(?<range>[0-9]+(-[0-9]+)?))$/.exec(expression)
     if (!match) {
       throw new Error(`Invalid ${TAGS.FOR} expression: ${expression}`)
@@ -270,18 +278,18 @@ class Engine {
   }
 
   renderIf(node, context) {
-    if (!node.attrs.hasOwnProperty('on')) {
+    if (!('on' in node.attrs)) {
       throw new Error(`Missing attribute "on" for ${TAGS.IF}`)
     }
     return this.renderCondition(node, context)
   }
 
   renderElif(node, context) {
-    if (!node.attrs.hasOwnProperty('on')) {
+    if (!('on' in node.attrs)) {
       throw new Error(`Missing attribute "on" for ${TAGS.ELIF}`)
     }
 
-    if (!node.hasOwnProperty('__prev_condition_result__')) {
+    if (!('__prev_condition_result__' in node)) {
       throw new Error(`${TAGS.ELIF} must behind ${TAGS.IF} or ${TAGS.ELIF}`)
     }
 
@@ -289,7 +297,7 @@ class Engine {
   }
 
   async renderElse(node, context) {
-    if (!node.hasOwnProperty('__prev_condition_result__')) {
+    if (!('__prev_condition_result__' in node)) {
       throw new Error(`${TAGS.ELSE} must behind ${TAGS.IF} or ${TAGS.ELIF}`)
     }
 
@@ -307,10 +315,10 @@ class Engine {
    */
   async renderWith(node, context) {
     const {attrs, children} = node
-    const alias = {}
+    const alias = Object.create(null)
     let hasKey = false
     for (const varName in attrs) {
-      if (!attrs.hasOwnProperty(varName)) {
+      if (!(varName in attrs)) {
         continue
       }
       hasKey = true
@@ -336,7 +344,7 @@ class Engine {
    */
   async renderTree(node, context) {
     const {attrs, children} = node
-    if (!attrs.hasOwnProperty('on')) {
+    if (!('on' in attrs)) {
       throw new Error(`Missing attribute "on" for ${TAGS.TREE}`)
     }
 
@@ -406,9 +414,9 @@ class Engine {
     context = {
       ...context,
       // 存放 hole 的集合
-      __include_holes__: {},
+      __include_holes__: Object.create(null),
       // 存放 fill 的集合
-      __include_fills__: {}
+      __include_fills__: Object.create(null)
     }
     const file = path.resolve(path.join(path.dirname(this.options.filename), attrs.file))
 
@@ -422,7 +430,7 @@ class Engine {
         raiseTemplateError(this.options, child, new Error(`${TAGS.INCLUDE} can only contain ${TAGS.FILL} as child`))
       }
       const name = attrs.name || ''
-      if (context.__include_fills__.hasOwnProperty(name)) {
+      if (name in context.__include_fills__) {
         if (name === '') {
           raiseTemplateError(this.options, child, new Error(`Default ${TAGS.FILL} can only appear once`))
         }
@@ -449,7 +457,7 @@ class Engine {
     // hole name
     const name = attrs.name || ''
     // 出现多次
-    if (context.__include_holes__.hasOwnProperty(name)) {
+    if (name in context.__include_holes__) {
       if (name === '') {
         throw new Error(`Default ${TAGS.HOLE} can only appear once`)
       }
@@ -457,7 +465,7 @@ class Engine {
       throw new Error(`${TAGS.HOLE} name must be unique: ${name}`)
     }
 
-    context.__include_holes__[name] = {}
+    context.__include_holes__[name] = Object.create(null)
 
     if (context.__include_fills__[name]) {
       return context.__include_fills__[name]
