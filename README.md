@@ -71,14 +71,19 @@ const context = {
   },
   visible: false
 }
-wet.render('/path/to/demo.html', context, {cache: true})
+wet.render('/path/to/demo.html', context, {
+  cache: true,
+  debug: true
+})
 ```
 
 通过调用 `wet.render(template, context, options?)` 执行模板的渲染，此函数会返回渲染后的HTML字符串。
 
 - `template` 模板文件，可以是相对路径或绝对路径
 - `context` 模板的上下文，为模板渲染提供数据。必须是对象，不能是数组
-- `options` 可选的选项，目前只有一个字段 `cache`，用于指示是否缓存模板文件。注：此缓存指缓存模板文件的DOM结构，并不是渲染结果
+- `options` 可选的选项
+    - `cache`，用于指示是否缓存模板文件。注：此缓存指缓存模板文件的DOM结构，并不是渲染结果
+    - `debug`，指示是否启用调用模式，在调试模式时，输出的html中会包含模板标签结构。
 
 ### `t-for`
 

@@ -43,12 +43,6 @@ function resolveExpression(content, context) {
     })
 }
 
-function renderTemplateTag({tag}, children) {
-  return `<!-- ${tag.toUpperCase()} BEGIN -->
-${children}
-<!-- ${tag.toUpperCase()} END -->`
-}
-
 function raiseTemplateError(options, node, e) {
   let msg
   let level = 0
@@ -82,6 +76,7 @@ class Engine {
    * @param content
    * @param context
    * @param {object} [options]
+   * @param {boolean} [options.debug=false]
    * @param {boolean} [options.cache=false]
    * @param {boolean} [options.filename] 模板文件路径
    */
@@ -108,6 +103,15 @@ class Engine {
   }
 
 
+  renderTemplateTag({tag}, children) {
+    if (!this.options.debug) {
+      return children
+    }
+    return `<!-- ${tag.toUpperCase()} BEGIN -->
+${children}
+<!-- ${tag.toUpperCase()} END -->`
+  }
+
   /**
    *
    * @param {Node} node
@@ -115,29 +119,27 @@ class Engine {
    * @return {Promise<boolean|string>}
    */
   async renderTemplateTags(node, context) {
-    const tag = node.tag
-
     switch (node.tag) {
       case TAGS.FOR:
-        return renderTemplateTag(node, await this.renderFor(node, context))
+        return this.renderTemplateTag(node, await this.renderFor(node, context))
       case TAGS.IF:
-        return renderTemplateTag(node, await this.renderIf(node, context))
+        return this.renderTemplateTag(node, await this.renderIf(node, context))
       case TAGS.ELIF:
-        return renderTemplateTag(node, await this.renderElif(node, context))
+        return this.renderTemplateTag(node, await this.renderElif(node, context))
       case TAGS.ELSE:
-        return renderTemplateTag(node, await this.renderElse(node, context))
+        return this.renderTemplateTag(node, await this.renderElse(node, context))
       case TAGS.WITH:
-        return renderTemplateTag(node, await this.renderWith(node, context))
+        return this.renderTemplateTag(node, await this.renderWith(node, context))
       case TAGS.TREE:
-        return renderTemplateTag(node, await this.renderTree(node, context))
+        return this.renderTemplateTag(node, await this.renderTree(node, context))
       case TAGS.CHILDREN:
-        return this.prepareTreeChildren(node, context)
+        return this.renderTemplateTag(node, this.prepareTreeChildren(node, context))
       case TAGS.INCLUDE:
-        return renderTemplateTag(node, await this.renderInclude(node, context))
+        return this.renderTemplateTag(node, await this.renderInclude(node, context))
       case TAGS.HTML:
-        return renderTemplateTag(node, await this.renderHTML(node, context))
+        return this.renderTemplateTag(node, await this.renderHTML(node, context))
       case TAGS.HOLE:
-        return renderTemplateTag(node, await this.renderHole(node, context))
+        return this.renderTemplateTag(node, await this.renderHole(node, context))
       case TAGS.FILL:
         throw new Error(`${TAGS.FILL} must be a child of ${TAGS.INCLUDE}`)
       default:
@@ -271,7 +273,7 @@ class Engine {
     }
 
     if (!result) {
-      return '<!-- FALSE -->'
+      return this.options.debug ? '<!-- FALSE -->' : ''
     }
 
     return await this.parseChildren(children, context)
@@ -302,7 +304,7 @@ class Engine {
     }
 
     if (node.__prev_condition_result__) {
-      return '<!-- FALSE -->'
+      return this.options.debug ? '<!-- FALSE -->' : ''
     }
 
     return await this.parseChildren(node.children, context)
@@ -318,7 +320,7 @@ class Engine {
     const alias = Object.create(null)
     let hasKey = false
     for (const varName in attrs) {
-      if (!(varName in attrs)) {
+      if (!attrs.hasOwnProperty(varName)) {
         continue
       }
       hasKey = true
@@ -385,8 +387,7 @@ class Engine {
   /**
    *
    * @param {Node} node
-   * @param {Object} node.attrs
-   * @param {string} [node.attrs.field=children]
+   * @param {{field: string}} node.attrs
    * @param context
    * @return {string|Promise<*>}
    */
@@ -437,7 +438,7 @@ class Engine {
         raiseTemplateError(this.options, child, new Error(`${TAGS.FILL} name must be unique: ${name}`))
       }
       context.__include_fills__[name] = null
-      context.__include_fills__[name] = await this.parseChildren(children, context)
+      context.__include_fills__[name] = this.renderTemplateTag(child, await this.parseChildren(children, context))
     }))
 
     return await render(file, context, {
@@ -488,6 +489,15 @@ class Engine {
   }
 }
 
+/**
+ *
+ * @param filename
+ * @param {object} context
+ * @param {object} options
+ * @param {boolean} [options.cache=false]
+ * @param {boolean} [options.debug=true]
+ * @return {Promise<string>}
+ */
 async function render(filename, context, options) {
   const start = process.hrtime()
   // 获取绝对路径
@@ -498,6 +508,8 @@ async function render(filename, context, options) {
 
   const engine = new Engine(buffer.toString('utf-8'), context, {
     filename: filename,
+    debug: true,
+    cache: true,
     ...options
   })
   const result = await engine.render()
