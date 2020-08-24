@@ -178,7 +178,13 @@ wet.render('/path/to/demo.html', context, {
 
 在此范围内，`varName` 等于 `a.b.c` 的值，`varName` 应该是一个合法的标识符。
 
-> 此标签一般用于简写层次比较深的对象引用。
+可以声明多个属性：
+
+```html
+<t-with varName1="a.b.c" varName2="a.b.c + 5" varNamen="a.b.c * 2">
+```
+
+> 此标签一般用于简写层次比较深的对象引用，或者重用某个数据的计算结果
 
 ### `t-tree` / `t-children`
 
