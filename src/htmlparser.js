@@ -129,6 +129,10 @@ class Node {
         break
       }
       let value = PLACEHOLDERS[match.groups.value]
+      // 空属性
+      if (!value) {
+        continue
+      }
       // 属性值中可能包含变量
       this._attrs[match.groups.name] = decode(value)
     }
