@@ -92,7 +92,7 @@ wet.render('/path/to/demo.html', context, {
  `for..of` 遍历数组
 
  ```html
-<t-for on="item of array" step="1">
+<t-for on="item of array" step="1" continue="item % 2 === 0" break="item > 5">
 <span>{{item}}</span>
 </t-for>
  ```
@@ -139,7 +139,7 @@ wet.render('/path/to/demo.html', context, {
 `for..in` 遍历集合
 
  ```html
-<t-for on="item in object">
+<t-for on="item in object" continue="item.value % 2 === 0" break="item.value > 5">
 <span>{{item.key}}: {{item.value}}</span>
 </t-for>
  ```
@@ -153,6 +153,11 @@ wet.render('/path/to/demo.html', context, {
  ```
 
 > `object` 暂不支持对象字面量
+
+`continue/break` since: 0.5.3
+
+其用法与 js 代码中的 `for...of/in` 用法一致，用于循环控制。
+其属性值是一个条件表达式，表达式中可以使用整个上下文变量（包括在 `t-for` 标签的 `on` 属性上定义的循环项变量）。
 
 ### `t-if`
 
@@ -264,5 +269,4 @@ _b.html_
 
 ## 开发计划
 
-- [ ] 给 `t-for` 添加 `continue` 和 `break` 属性支持
 - [ ] 添加 浏览器端支持

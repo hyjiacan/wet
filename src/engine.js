@@ -75,7 +75,7 @@ class Engine {
    *
    * @param content
    * @param context
-   * @param {object} [options]
+   * @param {{}} [options]
    * @param {boolean} [options.debug=false]
    * @param {boolean} [options.cache=false]
    * @param {boolean} [options.filename] 模板文件路径
@@ -103,13 +103,13 @@ class Engine {
   }
 
 
-  renderTemplateTag({tag}, children) {
+  renderTemplateTag({tagName}, children) {
     if (!this.options.debug) {
       return children
     }
-    return `<!-- ${tag.toUpperCase()} BEGIN -->
+    return `<!-- ${tagName.toUpperCase()} BEGIN -->
 ${children}
-<!-- ${tag.toUpperCase()} END -->`
+<!-- ${tagName.toUpperCase()} END -->`
   }
 
   /**
@@ -167,14 +167,14 @@ ${children}
         return result
       }
 
-      const {tag, children} = node
+      const {tagName, children} = node
 
       let childrenElements = []
       if (children) {
         childrenElements = await Promise.all(children.map(async child => await this.parseElement(child, context)))
       }
       const parsedAttrs = resolveExpression(node.attrsString, context)
-      return `<${tag}${parsedAttrs}>${childrenElements.join('')}</${tag}>`
+      return `<${tagName}${parsedAttrs}>${childrenElements.join('')}</${tagName}>`
     } catch (e) {
       raiseTemplateError(this.options, node, e)
     }
@@ -228,22 +228,31 @@ ${children}
     }
 
     const {value, key, operator, data, range} = match.groups
+    // continue 条件
+    const continueOn = attrs['continue'] || ''
+    // break 条件
+    const breakOn = attrs['break'] || ''
 
     let loopContext
     if (operator === 'of') {
+      // 步长
       const step = parseInt(attrs.step) || 1
       loopContext = runner.runForOf(context, {
         value,
         key,
         data,
         range,
-        step
+        step,
+        continueOn,
+        breakOn
       })
     } else if (operator === 'in') {
       loopContext = runner.runForIn(context, {
         value,
         key,
-        data
+        data,
+        continueOn,
+        breakOn
       })
     }
 
@@ -419,15 +428,14 @@ ${children}
       // 存放 fill 的集合
       __include_fills__: Object.create(null)
     }
-    const file = path.resolve(path.join(path.dirname(this.options.filename), attrs.file))
 
     // 收集 fills
     await Promise.all(children.map(async child => {
-      const {attrs, tag, children} = child
-      if (!children.isElement) {
+      const {attrs, tagName, children, isElement} = child
+      if (!isElement) {
         return
       }
-      if (tag !== TAGS.FILL) {
+      if (tagName !== TAGS.FILL) {
         raiseTemplateError(this.options, child, new Error(`${TAGS.INCLUDE} can only contain ${TAGS.FILL} as child`))
       }
       const name = attrs.name || ''
@@ -441,6 +449,7 @@ ${children}
       context.__include_fills__[name] = this.renderTemplateTag(child, await this.parseChildren(children, context))
     }))
 
+    const file = path.resolve(path.join(path.dirname(this.options.filename), attrs.file))
     return await render(file, context, {
       ...this.options,
       filename: file
@@ -492,8 +501,8 @@ ${children}
 /**
  *
  * @param filename
- * @param {object} context
- * @param {object} options
+ * @param {{}} context
+ * @param {{}} options
  * @param {boolean} [options.cache=false]
  * @param {boolean} [options.debug=true]
  * @return {Promise<string>}

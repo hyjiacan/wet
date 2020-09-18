@@ -1,3 +1,21 @@
+function getContinueStatement(expression) {
+  if (!expression) {
+    return ''
+  }
+  return `if (${expression}) {
+    continue
+  }`
+}
+
+function getBreakStatement(expression) {
+  if (!expression) {
+    return ''
+  }
+  return `if (${expression}) {
+    break
+  }`
+}
+
 module.exports = {
   /**
    * 运行动态代码
@@ -17,8 +35,13 @@ module.exports = {
    * @param {string} data
    * @param {string} range
    * @param {number} step
+   * @param {string} continueOn
+   * @param {string} breakOn
    */
-  runForOf(context, {key, value, data, range, step}) {
+  runForOf(context, {
+    key, value, data, range, step,
+    continueOn, breakOn
+  }) {
     if (range) {
       let from
       let to
@@ -42,11 +65,13 @@ module.exports = {
     if (key) {
       return this.runCode(`
     const data = []
-    for (let i = 0; i < ${data}.length; i+=${step}) {
-       const item = ${data}[i]
+    for (let ${key} = 0; ${key} < ${data}.length; ${key}+=${step}) {
+      const ${value} = ${data}[${key}]
+      ${getContinueStatement(continueOn)}
+      ${getBreakStatement(breakOn)}
       data.push({
-       ${key}: i,
-       ${value}: item
+       ${key},
+       ${value}
       })
     }
     return data`, context)
@@ -54,10 +79,12 @@ module.exports = {
 
     return this.runCode(`
     const data = []
-    for (let i = 0; i < ${data}.length; i+=${step}) {
-       const item = ${data}[i]
+    for (let _for_of_index_ = 0; _for_of_index_ < ${data}.length; _for_of_index_+=${step}) {
+       const ${value} = ${data}[_for_of_index_]
+      ${getContinueStatement(continueOn)}
+      ${getBreakStatement(breakOn)}
        data.push({
-        ${value}: item
+        ${value}
        })
     }
     return data`, context)
@@ -69,29 +96,38 @@ module.exports = {
    * @param {string} key
    * @param {string} value
    * @param {string} data
+   * @param {string} continueOn
+   * @param {string} breakOn
    */
-  runForIn(context, {key, value, data}) {
+  runForIn(context, {
+    key, value, data,
+    continueOn, breakOn
+  }) {
     if (key) {
       return this.runCode(`
     const data = []
-    for(const key in ${data}) {
-      const value = ${data}[key]
+    for(const ${key} in ${data}) {
+      const ${value} = ${data}[${key}]
+      ${getContinueStatement(continueOn)}
+      ${getBreakStatement(breakOn)}
       data.push({
-        ${key}: key,
-        ${value}: value
+        ${key},
+        ${value}
       })
     }
     return data`, context)
     }
     return this.runCode(`
     const data = []
-    for(const key in ${data}) {
-      const value = ${data}[key]
+    for(const _for_in_key_ in ${data}) {
+      const ${value} = {
+        key,
+        value: ${data}[_for_in_key_]
+      }
+      ${getContinueStatement(continueOn)}
+      ${getBreakStatement(breakOn)}
       data.push({
-        ${value}: {
-          key,
-          value
-        }
+        ${value}
       })
     }
     return data`, context)

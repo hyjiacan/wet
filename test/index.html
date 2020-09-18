@@ -64,12 +64,13 @@
   </t-for>
 </table>
 <h3>0-8</h3>
+<em>不渲染 3</em>
 <table>
   <thead>
   <th>index</th>
   <th>value</th>
   </thead>
-  <t-for on="item, index of 8">
+  <t-for on="item, index of 8" continue="item === 3">
     <tr>
       <td>{{index}}</td>
       <td>{{item}}</td>
@@ -77,12 +78,13 @@
   </t-for>
 </table>
 <h3>3-8</h3>
+<em>在 7 停止</em>
 <table>
   <thead>
   <th>index</th>
   <th>value</th>
   </thead>
-  <t-for on="item, index of 3-8">
+  <t-for on="item, index of 3-8" break="item > 7">
     <tr>
       <td>{{index}}</td>
       <td>{{item}}</td>
@@ -92,9 +94,9 @@
 <hr>
 <h3>t-include/t-hole/t-fill 示例</h3>
 <t-include file="extra.html">
-  <t-fill>里面的内容啊</t-fill>
+  <t-fill>fill the <b>default</b> hole</t-fill>
   <t-fill name="footer">
-    <p>这是底部的内容，在外面填充的</p>
+    <p>fill the <b>footer</b> hole</p>
   </t-fill>
 </t-include>
 <hr>

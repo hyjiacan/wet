@@ -1,6 +1,6 @@
 const fs = require('fs')
-const wet = require('./src/engine')
-const pkg = require('./package')
+const wet = require('../src/engine')
+const pkg = require('../package.json')
 
 wet.render('./test/index.html', pkg, {
   debug: false

@@ -4,7 +4,7 @@
   "description": "Simple Server-end Web Template Engine based on NodeJS",
   "main": "src/engine.js",
   "scripts": {
-    "test": "node test.js"
+    "test": "node test/node.js"
   },
   "keywords": [
     "wet",
