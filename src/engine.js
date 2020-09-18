@@ -119,7 +119,7 @@ ${children}
    * @return {Promise<boolean|string>}
    */
   async renderTemplateTags(node, context) {
-    switch (node.tag) {
+    switch (node.tagName) {
       case TAGS.FOR:
         return this.renderTemplateTag(node, await this.renderFor(node, context))
       case TAGS.IF:
@@ -268,7 +268,7 @@ ${children}
 
     // 给否则条件设置值
     const nextNode = node.nextElement
-    if (nextNode && (nextNode.tag === TAGS.ELSE || nextNode.tag === TAGS.ELIF)) {
+    if (nextNode && (nextNode.tagName === TAGS.ELSE || nextNode.tagName === TAGS.ELIF)) {
       nextNode.__prev_condition_result__ = node.__prev_condition_result__ || result
     }
 
@@ -423,8 +423,8 @@ ${children}
 
     // 收集 fills
     await Promise.all(children.map(async child => {
-      const {attrs, tag, type, children} = child
-      if (type !== NODE_TYPES.ELEMENT_NODE) {
+      const {attrs, tag, children} = child
+      if (!children.isElement) {
         return
       }
       if (tag !== TAGS.FILL) {

@@ -84,6 +84,7 @@ class Node {
     this._children = []
     this._attrs = Object.create(null)
     this._parent = null
+    this._index = -1
 
     if (!entity) {
       return
@@ -91,7 +92,6 @@ class Node {
     this._raw = entity.data
     this._type = entity.type
     this._line = entity.lineNumber
-    this._isElement = entity.type === NODE_TYPES.ELEMENT_NODE
 
     if (this.isElement) {
       // 解析数据
@@ -163,6 +163,7 @@ class Node {
   get attrsString() {
     const temp = []
     for (const key in this._attrs) {
+      // noinspection JSUnfilteredForInLoop
       temp.push(`${key}="${this._attrs[key]}"`)
     }
 
@@ -171,22 +172,18 @@ class Node {
 
   /**
    *
-   * @param {boolean} [includeChildren=false] 是否包含子元素
    * @return {string}
    */
-  toString(includeChildren) {
+  get outerHTML() {
     // return this._raw
 
-    if (this._type !== NODE_TYPES.ELEMENT_NODE) {
+    if (!this.isElement) {
       return this._raw
     }
 
-    if (!includeChildren) {
-      return `<${this._tag}${this.attrsString}>`
-    }
-    const children = this._children.map(item => item.toString(true)).join('')
+    const children = this._children.map(item => item.outerHTML).join('')
 
-    return `<${this._tag}${this.attrsString}>${children}</${this._tag}>`
+    return `<${this.tagName}${this.attrsString}>${children}</${this.tagName}>`
   }
 
   /**
@@ -233,7 +230,7 @@ class Node {
    *
    * @return {string}
    */
-  get tag() {
+  get tagName() {
     return this._tag
   }
 
@@ -267,6 +264,11 @@ class Node {
    */
   get nextElement() {
     const next = this.next
+    if (!next) {
+      return null
+    }
+    // 当 next 是元素时，就返回 next
+    // 否则返回 next.next
     if (next.isElement) {
       return next
     }
@@ -287,6 +289,11 @@ class Node {
    */
   get prevElement() {
     const prev = this.prev
+    if (!prev) {
+      return null
+    }
+    // 当 prev 是元素时，就返回 prev
+    // 否则返回 prev.prev
     if (prev.isElement) {
       return prev
     }
