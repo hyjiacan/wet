@@ -141,5 +141,25 @@ module.exports = {
    */
   getExpressionValue(context, expression) {
     return this.runCode(`return ${expression}`, context)
+  },
+  resolveExpression(content, context) {
+    if (/^\s*$/.test(content)) {
+      return content
+    }
+    return content
+      // 解析表达式
+      .replace(/{{2}([\s\S]+?)}{2}/g, (input, exp) => {
+        // 移除表达式前后的空白字符
+        let value = this.getExpressionValue(context, exp.trim())
+        if (Object.prototype.toString.call(value) === '[object Object]') {
+          value = JSON.stringify(value)
+        }
+        // 保持原数据，用于 t-html 的渲染
+        if (context.__useRawHTML) {
+          return value
+        }
+        // 避免注入脚本
+        return String(value).replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      })
   }
 }

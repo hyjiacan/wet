@@ -1,19 +1,15 @@
 {
   "name": "@hyjiacan/wet",
   "version": "0.5.2",
-  "description": "Simple Server-end Web Template Engine based on NodeJS",
+  "description": "Server web template engine running on nodejs",
   "main": "src/engine.js",
   "scripts": {
-    "test": "node test/node.js"
+    "test": "node test/index.js"
   },
   "keywords": [
+    "nodejs",
     "wet",
-    "html",
-    "parser",
     "html parser",
-    "dom",
-    "xml",
-    "sax",
     "template",
     "template engine"
   ],
@@ -29,5 +25,8 @@
     "LICENSE",
     "README.md",
     "README_zh.md"
-  ]
+  ],
+  "devDependencies": {
+    "eslint": "^7.10.0"
+  }
 }

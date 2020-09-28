@@ -2,6 +2,8 @@
 <!DOCTYPE DSTTAGS [
         <!ELEMENT T-FOR () -- loop -->
         <!ATTLIST T-FOR on CDATA #REQUIRED>
+        <!ATTLIST T-FOR continue CDATA>
+        <!ATTLIST T-FOR break CDATA>
 
         <!ELEMENT T-TREE (T-CHILDREN) -- tree -->
         <!ATTLIST T-TREE on CDATA #REQUIRED>

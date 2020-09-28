@@ -4,44 +4,13 @@ const crypto = require('crypto')
 const fs = require('fs')
 const path = require('path')
 const util = require('util')
-const {parse, NODE_TYPES} = require('./htmlparser')
+const {Node, parse} = require('./htmlparser')
 const runner = require('./coderunner')
+const TAGS = require('./tags')
+const ParseError = require('./parse-error')
 
 // htmlparser 解析出的树缓存
 const DOM_CACHE = Object.create(null)
-
-// 模板标签
-const TAGS = {
-  IF: 't-if',
-  ELSE: 't-else',
-  ELIF: 't-elif',
-  FOR: 't-for',
-  WITH: 't-with',
-  TREE: 't-tree',
-  CHILDREN: 't-children',
-  INCLUDE: 't-include',
-  HTML: 't-html',
-  HOLE: 't-hole',
-  FILL: 't-fill'
-}
-
-function resolveExpression(content, context) {
-  return content
-    // 解析表达式
-    .replace(/{{2}([\s\S]+?)}{2}/g, (input, exp) => {
-      // 移除表达式前后的空白字符
-      let value = runner.getExpressionValue(context, exp.trim())
-      if (typeof value === 'object' && value.constructor && value.constructor.name === 'Object') {
-        value = JSON.stringify(value)
-      }
-      // 保持原数据，用于 t-html 的渲染
-      if (context.__useRawHTML) {
-        return value
-      }
-      // 避免注入脚本
-      return String(value).replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    })
-}
 
 function raiseTemplateError(options, node, e) {
   let msg
@@ -60,14 +29,6 @@ ${paddedLineNumber}: ${raw}
 ${''.padStart(paddedLineNumber.length + 2, ' ')}${''.padStart(raw.length, '^')}`
   }
   throw new ParseError(msg, level)
-}
-
-class ParseError extends Error {
-  constructor(message, level) {
-    super(message)
-    this.name = 'ParseError'
-    this.level = level || 0
-  }
 }
 
 class Engine {
@@ -103,13 +64,19 @@ class Engine {
   }
 
 
+  /**
+   *
+   * @param {Node} node
+   * @param children
+   * @return {string|*}
+   */
   renderTemplateTag({tagName}, children) {
     if (!this.options.debug) {
       return children
     }
-    return `<!-- ${tagName.toUpperCase()} BEGIN -->
+    return `<!-- ${tagName} BEGIN -->
 ${children}
-<!-- ${tagName.toUpperCase()} END -->`
+<!-- ${tagName} END -->`
   }
 
   /**
@@ -148,18 +115,17 @@ ${children}
   }
 
   async parseElement(node, context) {
-    const {type, raw} = node
-    if (type === NODE_TYPES.DOCUMENT_TYPE_NODE) {
+    const {nodeType, raw} = node
+    if (nodeType === Node.DOCUMENT_TYPE_NODE) {
       return raw
     }
     try {
-      if (type === NODE_TYPES.TEXT_NODE ||
-        type === NODE_TYPES.COMMENT_NODE ||
-        type === NODE_TYPES.CDATA_SECTION_NODE) {
-        // if (node.prev && isTemplateTag(node.prev) && /^\s*$/.test(raw)) {
-        //   return ''
-        // }
-        return resolveExpression(raw, context)
+      switch (nodeType) {
+        case  Node.TEXT_NODE:
+          return runner.resolveExpression(raw, context)
+        case Node.COMMENT_NODE:
+        case Node.CDATA_SECTION_NODE:
+          return raw
       }
 
       const result = await this.renderTemplateTags(node, context)
@@ -167,14 +133,14 @@ ${children}
         return result
       }
 
-      const {tagName, children} = node
+      const {tagName, childNodes} = node
 
       let childrenElements = []
-      if (children) {
-        childrenElements = await Promise.all(children.map(async child => await this.parseElement(child, context)))
+      if (childNodes) {
+        childrenElements = await Promise.all(childNodes.map(async child => await this.parseElement(child, context)))
       }
-      const parsedAttrs = resolveExpression(node.attrsString, context)
-      return `<${tagName}${parsedAttrs}>${childrenElements.join('')}</${tagName}>`
+      const parsedAttrs = runner.resolveExpression(node.attrsString, context)
+      return `<${tagName.toLowerCase()}${parsedAttrs ? ' ' : ''}${parsedAttrs}>${childrenElements.join('')}</${tagName.toLowerCase()}>`
     } catch (e) {
       raiseTemplateError(this.options, node, e)
     }
@@ -198,7 +164,7 @@ ${children}
       return await this.parseElement(element, context)
     }))
 
-    return resolveExpression(temp.join(''), context)
+    return runner.resolveExpression(temp.join(''), context)
   }
 
   /**
@@ -208,11 +174,11 @@ ${children}
    * @return {string}
    */
   async renderFor(node, context) {
-    const {attrs, children} = node
-    if (!('on' in attrs)) {
+    const {attributes, childNodes} = node
+    if (!(attributes.hasOwnProperty('on'))) {
       throw new Error(`Missing attribute "on" for ${TAGS.FOR}`)
     }
-    const expression = attrs.on
+    const expression = attributes.on.value
 
     // array:
     // for item of array
@@ -229,14 +195,17 @@ ${children}
 
     const {value, key, operator, data, range} = match.groups
     // continue 条件
-    const continueOn = attrs['continue'] || ''
+    const continueOn = attributes.hasOwnProperty('continue') ? attributes['continue'].value : ''
     // break 条件
-    const breakOn = attrs['break'] || ''
+    const breakOn = attributes.hasOwnProperty('break') ? attributes['break'].value : ''
 
     let loopContext
     if (operator === 'of') {
       // 步长
-      const step = parseInt(attrs.step) || 1
+      const step = attributes.hasOwnProperty('step') ? parseInt(attributes.step.value) : 1
+      if (!step || step < 0) {
+        throw new Error(`Invalid "step" value of ${TAGS.FOR}: ${step}`)
+      }
       loopContext = runner.runForOf(context, {
         value,
         key,
@@ -263,20 +232,20 @@ ${children}
         ...context,
         ...item
       }
-      const parsedChildren = await this.parseChildren(children, itemContext)
+      const parsedChildren = await this.parseChildren(childNodes, itemContext)
       result.push(parsedChildren)
     }
     return result.join('')
   }
 
   async renderCondition(node, context) {
-    const {attrs, children} = node
-    const expression = attrs.on
+    const {attributes, childNodes} = node
+    const expression = attributes.on.value
 
     const result = runner.getExpressionValue(context, expression)
 
     // 给否则条件设置值
-    const nextNode = node.nextElement
+    const nextNode = node.nextElementSibling
     if (nextNode && (nextNode.tagName === TAGS.ELSE || nextNode.tagName === TAGS.ELIF)) {
       nextNode.__prev_condition_result__ = node.__prev_condition_result__ || result
     }
@@ -285,22 +254,22 @@ ${children}
       return this.options.debug ? '<!-- FALSE -->' : ''
     }
 
-    return await this.parseChildren(children, context)
+    return await this.parseChildren(childNodes, context)
   }
 
   renderIf(node, context) {
-    if (!('on' in node.attrs)) {
+    if (!(node.attributes.hasOwnProperty('on'))) {
       throw new Error(`Missing attribute "on" for ${TAGS.IF}`)
     }
     return this.renderCondition(node, context)
   }
 
   renderElif(node, context) {
-    if (!('on' in node.attrs)) {
+    if (!(node.attributes.hasOwnProperty('on'))) {
       throw new Error(`Missing attribute "on" for ${TAGS.ELIF}`)
     }
 
-    if (!('__prev_condition_result__' in node)) {
+    if (!(node.hasOwnProperty('__prev_condition_result__'))) {
       throw new Error(`${TAGS.ELIF} must behind ${TAGS.IF} or ${TAGS.ELIF}`)
     }
 
@@ -308,7 +277,7 @@ ${children}
   }
 
   async renderElse(node, context) {
-    if (!('__prev_condition_result__' in node)) {
+    if (!(node.hasOwnProperty('__prev_condition_result__'))) {
       throw new Error(`${TAGS.ELSE} must behind ${TAGS.IF} or ${TAGS.ELIF}`)
     }
 
@@ -316,7 +285,7 @@ ${children}
       return this.options.debug ? '<!-- FALSE -->' : ''
     }
 
-    return await this.parseChildren(node.children, context)
+    return await this.parseChildren(node.childNodes, context)
   }
 
   /**
@@ -325,24 +294,18 @@ ${children}
    * @param context
    */
   async renderWith(node, context) {
-    const {attrs, children} = node
+    const {attributes, childNodes} = node
     const alias = Object.create(null)
-    let hasKey = false
-    for (const varName in attrs) {
-      if (!attrs.hasOwnProperty(varName)) {
-        continue
-      }
-      hasKey = true
-      const expression = attrs[varName]
 
-      alias[varName] = runner.runCode(`return ${expression}`, context)
-    }
-
-    if (!hasKey) {
+    if (!attributes.length) {
       throw new Error(`Must specify at least one attribute for ${TAGS.WITH}`)
     }
 
-    return await this.parseChildren(children, {
+    for (const attribute of attributes) {
+      alias[attribute.name] = runner.runCode(`return ${attribute.value}`, context)
+    }
+
+    return await this.parseChildren(childNodes, {
       ...context,
       ...alias
     })
@@ -354,12 +317,12 @@ ${children}
    * @param context
    */
   async renderTree(node, context) {
-    const {attrs, children} = node
-    if (!('on' in attrs)) {
+    const {attributes, childNodes} = node
+    if (!(attributes.hasOwnProperty('on'))) {
       throw new Error(`Missing attribute "on" for ${TAGS.TREE}`)
     }
 
-    const expression = attrs.on
+    const expression = attributes.on.value
     // 树数据的变量名称与树项的变量名称
     const [treeName, varName] = expression.split(' as ')
     let treeData = context[treeName]
@@ -370,7 +333,7 @@ ${children}
     const treeId = `${new Date().getTime()}${Math.round(Math.random() * 1000)}`
 
     this.TREE_CACHE[treeId] = {
-      children,
+      children: childNodes,
       varName
     }
 
@@ -396,13 +359,13 @@ ${children}
   /**
    *
    * @param {Node} node
-   * @param {{field: string}} node.attrs
+   * @param {{field: string}} node.attributes
    * @param context
    * @return {string|Promise<*>}
    */
-  prepareTreeChildren({attrs}, context) {
+  prepareTreeChildren({attributes}, context) {
     const treeId = context.__tree_id__
-    const field = attrs.field || 'children'
+    const field = attributes.hasOwnProperty('field') ? attributes.field.value : 'children'
     const {varName} = this.TREE_CACHE[treeId]
     const data = context[varName][field]
     // 没有子元素了
@@ -414,12 +377,12 @@ ${children}
 
   /**
    *
-   * @param attrs
-   * @param children
+   * @param attributes
+   * @param childNodes
    * @param context
    * @return {*}
    */
-  async renderInclude({attrs, children}, context) {
+  async renderInclude({attributes, childNodes}, context) {
     // 避免污染父级
     context = {
       ...context,
@@ -430,15 +393,15 @@ ${children}
     }
 
     // 收集 fills
-    await Promise.all(children.map(async child => {
-      const {attrs, tagName, children, isElement} = child
+    await Promise.all(childNodes.map(async child => {
+      const {attributes, tagName, childNodes, isElement} = child
       if (!isElement) {
         return
       }
       if (tagName !== TAGS.FILL) {
         raiseTemplateError(this.options, child, new Error(`${TAGS.INCLUDE} can only contain ${TAGS.FILL} as child`))
       }
-      const name = attrs.name || ''
+      const name = attributes.hasOwnProperty('name') ? attributes.name : ''
       if (name in context.__include_fills__) {
         if (name === '') {
           raiseTemplateError(this.options, child, new Error(`Default ${TAGS.FILL} can only appear once`))
@@ -446,10 +409,15 @@ ${children}
         raiseTemplateError(this.options, child, new Error(`${TAGS.FILL} name must be unique: ${name}`))
       }
       context.__include_fills__[name] = null
-      context.__include_fills__[name] = this.renderTemplateTag(child, await this.parseChildren(children, context))
+      context.__include_fills__[name] = this.renderTemplateTag(child, await this.parseChildren(childNodes, context))
     }))
 
-    const file = path.resolve(path.join(path.dirname(this.options.filename), attrs.file))
+
+    if (!(attributes.hasOwnProperty('file'))) {
+      throw new Error(`Missing attribute "file" for ${TAGS.INCLUDE}`)
+    }
+
+    const file = path.resolve(path.join(path.dirname(this.options.filename), attributes.file.value))
     return await render(file, context, {
       ...this.options,
       filename: file
@@ -463,9 +431,9 @@ ${children}
    * @return {*}
    */
   async renderHole(node, context) {
-    const {attrs, children} = node
+    const {attributes, childNodes} = node
     // hole name
-    const name = attrs.name || ''
+    const name = attributes.hasOwnProperty('name') ? attributes.name.value : ''
     // 出现多次
     if (name in context.__include_holes__) {
       if (name === '') {
@@ -480,18 +448,18 @@ ${children}
     if (context.__include_fills__[name]) {
       return context.__include_fills__[name]
     }
-    return this.parseChildren(children, context)
+    return this.parseChildren(childNodes, context)
   }
 
   /**
    *
    * @param node
-   * @param node.children
+   * @param node.childNodes
    * @param context
    * @return {*}
    */
-  async renderHTML({children}, context) {
-    return await this.parseChildren(children, {
+  async renderHTML({childNodes}, context) {
+    return await this.parseChildren(childNodes, {
       ...context,
       __useRawHTML: true
     })

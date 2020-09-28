@@ -1,14 +1,4 @@
-// @see https://developer.mozilla.org/zh-CN/docs/Web/API/Node/nodeType
-const NODE_TYPES = {
-  ELEMENT_NODE: 1, //一个 元素 节点，例如 <p> 和 <div>。
-  TEXT_NODE: 3, // Element 或者 Attr 中实际的  文字
-  CDATA_SECTION_NODE: 4, //	一个 CDATASection，例如 <!CDATA[[ … ]]>。
-  PROCESSING_INSTRUCTION_NODE: 7, //	一个用于XML文档的 ProcessingInstruction ，例如 <?xml-stylesheet ... ?> 声明。
-  COMMENT_NODE: 8, //	一个 Comment 节点。
-  // DOCUMENT_NODE: 9, //	一个 Document 节点。
-  DOCUMENT_TYPE_NODE: 10 //	描述文档类型的 DocumentType 节点。例如 <!DOCTYPE html>  就是用于 HTML5 的。
-  // DOCUMENT_FRAGMENT_NODE: 11 //	一个 DocumentFragment 节点
-}
+const NamedNodeMap = require('./NamedNodeMap')
 
 class Entity {
   /**
@@ -31,7 +21,7 @@ class Entity {
     this.data = data
     this._lineNumber = startLineNumber
     this.type = this._getEntityType(data)
-    if (this.type !== NODE_TYPES.ELEMENT_NODE) {
+    if (this.type !== Node.ELEMENT_NODE) {
       return
     }
     if (/^<\//.test(data)) {
@@ -46,22 +36,22 @@ class Entity {
 
   _getEntityType(data) {
     if (data.startsWith('<!--')) {
-      return NODE_TYPES.COMMENT_NODE
+      return Node.COMMENT_NODE
     }
     if (data.startsWith('<!CDATA[[')) {
-      return NODE_TYPES.CDATA_SECTION_NODE
+      return Node.CDATA_SECTION_NODE
     }
     if (data.startsWith('<?')) {
-      return NODE_TYPES.PROCESSING_INSTRUCTION_NODE
+      return Node.PROCESSING_INSTRUCTION_NODE
     }
     if (/^<!doctype /i.test(data)) {
-      return NODE_TYPES.DOCUMENT_TYPE_NODE
+      return Node.DOCUMENT_TYPE_NODE
     }
     if (/^<[a-z_\-\/]/i.test(data)) {
-      return NODE_TYPES.ELEMENT_NODE
+      return Node.ELEMENT_NODE
     }
 
-    return NODE_TYPES.TEXT_NODE
+    return Node.TEXT_NODE
   }
 }
 
@@ -82,7 +72,7 @@ class Node {
    */
   constructor(entity) {
     this._children = []
-    this._attrs = Object.create(null)
+    this._attrs = new NamedNodeMap()
     this._parent = null
     this._index = -1
 
@@ -109,14 +99,14 @@ class Node {
   _resolve(entity) {
     if (entity.state === 'close') {
       const tagName = /^<\/([^\/>]+)>$/.exec(entity.data)[1]
-      // 属性名称中可能包含变量
-      this._tag = decode(tagName)
+      // 标签名称中可能包含变量
+      this._tag = decode(tagName).toUpperCase()
       return
     }
 
     const tagName = /^<([^\s\/>]+)/.exec(entity.data)[1]
     // 属性名称中可能包含变量
-    this._tag = decode(tagName)
+    this._tag = decode(tagName).toUpperCase()
 
     // 读取属性，移除末尾的 > 符号和换行符
     const attrText = entity.data.substring(tagName.length + 1).replace(/\/?[>\r\n]+$/, '')
@@ -133,8 +123,15 @@ class Node {
       if (!value) {
         continue
       }
+
+      const name = match.groups.name
       // 属性值中可能包含变量
-      this._attrs[match.groups.name] = decode(value)
+      value = decode(value)
+
+      this._attrs.setNamedItem({
+        name,
+        value
+      })
     }
   }
 
@@ -160,20 +157,6 @@ class Node {
    *
    * @return {string}
    */
-  get attrsString() {
-    const temp = []
-    for (const key in this._attrs) {
-      // noinspection JSUnfilteredForInLoop
-      temp.push(`${key}="${this._attrs[key]}"`)
-    }
-
-    return temp.length ? ` ${temp.join(' ')}` : ''
-  }
-
-  /**
-   *
-   * @return {string}
-   */
   get outerHTML() {
     // return this._raw
 
@@ -184,14 +167,6 @@ class Node {
     const children = this._children.map(item => item.outerHTML).join('')
 
     return `<${this.tagName}${this.attrsString}>${children}</${this.tagName}>`
-  }
-
-  /**
-   *
-   * @return {boolean}
-   */
-  get isElement() {
-    return this._type === NODE_TYPES.ELEMENT_NODE
   }
 
   /**
@@ -214,7 +189,7 @@ class Node {
    *
    * @return {Node[]}
    */
-  get children() {
+  get childNodes() {
     return this._children
   }
 
@@ -236,17 +211,17 @@ class Node {
 
   /**
    *
-   * @return {{}}
+   * @return {NamedNodeMap}
    */
-  get attrs() {
+  get attributes() {
     return this._attrs
   }
 
   /**
    *
-   * @return {NODE_TYPES}
+   * @return {number}
    */
-  get type() {
+  get nodeType() {
     return this._type
   }
 
@@ -254,7 +229,7 @@ class Node {
    *
    * @return {Node}
    */
-  get next() {
+  get nextSibling() {
     return this._parent._children[this._index + 1]
   }
 
@@ -262,8 +237,8 @@ class Node {
    *
    * @return {Node}
    */
-  get nextElement() {
-    const next = this.next
+  get nextElementSibling() {
+    const next = this.nextSibling
     if (!next) {
       return null
     }
@@ -272,14 +247,14 @@ class Node {
     if (next.isElement) {
       return next
     }
-    return next.next
+    return next.nextSibling
   }
 
   /**
    *
    * @return {Node}
    */
-  get prev() {
+  get prevSibling() {
     return this._parent._children[this._index - 1]
   }
 
@@ -287,8 +262,8 @@ class Node {
    *
    * @return {Node}
    */
-  get prevElement() {
-    const prev = this.prev
+  get prevElementSibling() {
+    const prev = this.prevSibling
     if (!prev) {
       return null
     }
@@ -297,7 +272,7 @@ class Node {
     if (prev.isElement) {
       return prev
     }
-    return prev.prev
+    return prev.prevSibling
   }
 
   /**
@@ -307,7 +282,51 @@ class Node {
   get parent() {
     return this._parent
   }
+
+
+  get attrsString() {
+    if (!this._attrs.length) {
+      return ''
+    }
+    return Array.from(this._attrs).map(attribute => {
+      return `${attribute.name}="${attribute.value}"`
+    }).join(' ')
+  }
+
+  get isElement() {
+    return this._type === Node.ELEMENT_NODE
+  }
 }
+
+// NODE_TYPES
+// @see https://developer.mozilla.org/zh-CN/docs/Web/API/Node/nodeType
+Object.defineProperties(Node, {
+  // 元素 节点，例如 <p> 和 <div>
+  ELEMENT_NODE: {
+    configurable: false,
+    value: 1
+  },
+  // Element 或者 Attr 中实际的  文字
+  TEXT_NODE: {
+    configurable: false,
+    value: 3
+  },
+  // CDATASection，例如 <!CDATA[[ … ]]>。
+  CDATA_SECTION_NODE: {
+    configurable: false,
+    value: 4
+  },
+  // Comment 节点
+  COMMENT_NODE: {
+    configurable: false,
+    value: 8
+  },
+  // 描述文档类型的 DocumentType 节点。例如 <!DOCTYPE html>
+  DOCUMENT_TYPE_NODE: {
+    configurable: false,
+    value: 10
+  }
+})
 
 const PLACEHOLDERS = Object.create(null)
 let placeholderIndex = 0
@@ -329,14 +348,6 @@ function preProcess(content) {
       const p = getPlaceholder()
       PLACEHOLDERS[p] = input
       return p
-    })
-    .replace(/<(style|script)[\s\S]+?<\/\1>/ig, (input) => {
-      return input.split('\n').map(line => {
-        // 处理 style 和 script 标签
-        const p = getPlaceholder()
-        PLACEHOLDERS[p] = line
-        return p
-      }).join('\n')
     })
     .replace(/{{[\s\S]+?}}/g, input => {
       // 处理 模板表达式
@@ -420,7 +431,7 @@ function parse(content) {
     const node = new Node(entity)
 
     // 不是元素时，直接添加到 children 中
-    if (entity.type !== NODE_TYPES.ELEMENT_NODE) {
+    if (entity.type !== Node.ELEMENT_NODE) {
       currentNode.appendChild(node)
       continue
     }
@@ -458,10 +469,10 @@ function parse(content) {
     currentNode.close(entity)
     currentNode = currentNode.parent
   }
-  return tree.children
+  return tree.childNodes
 }
 
 module.exports = {
-  parse,
-  NODE_TYPES
+  Node,
+  parse
 }
