@@ -1,3 +1,5 @@
+// 解析 html 字符串，得到 DOM 结构
+
 const NamedNodeMap = require('./NamedNodeMap')
 
 class Entity {

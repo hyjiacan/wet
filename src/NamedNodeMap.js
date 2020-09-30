@@ -1,5 +1,5 @@
 /**
- * 仿系统的数据结构
+ * 仿系统的数据结构 NamedNodeMap
  * @return {NamedNodeMap}
  * @constructor
  */
