@@ -26,6 +26,9 @@
   <span>{{author + '/' + name}}</span>
   <small class="pkg-version">{{version}}</small>
 </h1>
+<p>
+  不解析表达式符号 {!{ 和 }!}
+</p>
 <t-if on="description">
   <p>{{description}}</p>
 </t-if>
@@ -102,7 +105,6 @@
 <hr>
 <div style="text-align: center">
   <span>Powered by {{name}}.</span>
-  <span>Template render takes @{timestamp}@ ms</span>
 </div>
 </body>
 </html>

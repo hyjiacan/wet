@@ -57,10 +57,10 @@ class Engine {
     const html = await Promise.all(dom.map(element => {
       return this.parseElement(element, this.context)
     }))
-    return html.join('')
-      // 处理不需要被解析的 {{ }} 符号
-      .replace(/{!{/g, '{{')
-      .replace(/}!}/g, '}}')
+    // 处理不需要被解析的 {{ }} 符号
+    return html.join('').replace(/([{}])!\1/g, (match, ch) => {
+      return ch + ch
+    })
   }
 
 
@@ -476,7 +476,6 @@ ${children}
  * @return {Promise<string>}
  */
 async function render(filename, context, options) {
-  const start = process.hrtime()
   // 获取绝对路径
   filename = path.resolve(filename)
   const buffer = await util.promisify(fs.readFile)(filename, {
@@ -489,9 +488,7 @@ async function render(filename, context, options) {
     cache: true,
     ...options
   })
-  const result = await engine.render()
-  const [ms, ns] = process.hrtime(start)
-  return result.replace('@{timestamp}@', (ms + (ns / 1e9)).toFixed(6))
+  return await engine.render()
 }
 
 module.exports = {
