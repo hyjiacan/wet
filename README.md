@@ -16,4 +16,10 @@ npm: https://www.npmjs.com/package/@hyjiacan/wet
 npm i @hyjiacan/wet
 ```
 
+## 用法
+
+用法请参考 [wiki](https://gitee.com/hyjiacan/wet/wikis) 
+
 ## 开发计划
+
+无
