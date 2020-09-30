@@ -18,9 +18,9 @@ function raiseTemplateError(options, node, e) {
   if (e instanceof ParseError) {
     level = e.level + 1
     msg = `${e.message}
-${node.line.toString().padStart(5, ' ')}:${''.padStart(level, ' ')} ${node.raw.trim()}`
+${node.lineNumber.toString().padStart(5, ' ')}:${''.padStart(level, ' ')} ${node.raw.trim()}`
   } else {
-    const lineNumber = node.line.toString()
+    const lineNumber = node.lineNumber.toString()
     const paddedLineNumber = lineNumber.padStart(5, ' ')
     const raw = node.raw.trim()
     msg = `${e.message}

@@ -2,34 +2,23 @@ const NamedNodeMap = require('./NamedNodeMap')
 
 class Entity {
   /**
-   * @type {string}
-   */
-  get state() {
-    return this._state
-  }
-
-  get lineNumber() {
-    return this._lineNumber
-  }
-
-  /**
    *
    * @param {string} data
    * @param startLineNumber
    */
   constructor(data, startLineNumber) {
     this.data = data
-    this._lineNumber = startLineNumber
+    this.lineNumber = startLineNumber
     this.type = this._getEntityType(data)
     if (this.type !== Node.ELEMENT_NODE) {
       return
     }
     if (/^<\//.test(data)) {
-      this._state = 'close'
+      this.state = 'close'
     } else if (/\/>$/.test(data) || /^<(link|input|meta|img|hr)\s/i.test(data)) {
-      this._state = 'self-close'
+      this.state = 'self-close'
     } else {
-      this._state = 'open'
+      this.state = 'open'
     }
   }
 
@@ -71,17 +60,17 @@ class Node {
    * @param {Entity} [entity]
    */
   constructor(entity) {
-    this._children = []
-    this._attrs = new NamedNodeMap()
-    this._parent = null
+    this.childNodes = []
+    this.attributes = new NamedNodeMap()
+    this.parentElement = null
     this._index = -1
 
     if (!entity) {
       return
     }
     this._raw = entity.data
-    this._type = entity.type
-    this._line = entity.lineNumber
+    this.nodeType = entity.type
+    this.lineNumber = entity.lineNumber
 
     if (this.isElement) {
       // 解析数据
@@ -89,7 +78,7 @@ class Node {
     }
 
     // 从 placeholder 中读取属性值
-    this._raw = decode(decode(this._raw), true)
+    this.raw = decode(decode(this._raw), true)
   }
 
   /**
@@ -100,13 +89,13 @@ class Node {
     if (entity.state === 'close') {
       const tagName = /^<\/([^\/>]+)>$/.exec(entity.data)[1]
       // 标签名称中可能包含变量
-      this._tag = decode(tagName).toUpperCase()
+      this.tagName = decode(tagName).toUpperCase()
       return
     }
 
     const tagName = /^<([^\s\/>]+)/.exec(entity.data)[1]
     // 属性名称中可能包含变量
-    this._tag = decode(tagName).toUpperCase()
+    this.tagName = decode(tagName).toUpperCase()
 
     // 读取属性，移除末尾的 > 符号和换行符
     const attrText = entity.data.substring(tagName.length + 1).replace(/\/?[>\r\n]+$/, '')
@@ -128,7 +117,7 @@ class Node {
       // 属性值中可能包含变量
       value = decode(value)
 
-      this._attrs.setNamedItem({
+      this.attributes.setNamedItem({
         name,
         value
       })
@@ -140,7 +129,7 @@ class Node {
    * @param {Entity} [entity]
    */
   close(entity) {
-    this._closed = true
+    this.closed = true
   }
 
   /**
@@ -148,9 +137,9 @@ class Node {
    * @param {Node} node
    */
   appendChild(node) {
-    node._parent = this
-    node._index = this._children.length
-    this._children.push(node)
+    node.parentElement = this
+    node._index = this.childNodes.length
+    this.childNodes.push(node)
   }
 
   /**
@@ -161,76 +150,21 @@ class Node {
     // return this._raw
 
     if (!this.isElement) {
-      return this._raw
+      return this.raw
     }
 
-    const children = this._children.map(item => item.outerHTML).join('')
+    const children = this.childNodes.map(item => item.outerHTML).join('')
 
     return `<${this.tagName}${this.attrsString}>${children}</${this.tagName}>`
   }
 
-  /**
-   *
-   * @return {string}
-   */
-  get raw() {
-    return this._raw
-  }
-
-  /**
-   *
-   * @return {number}
-   */
-  get line() {
-    return this._line
-  }
-
-  /**
-   *
-   * @return {Node[]}
-   */
-  get childNodes() {
-    return this._children
-  }
-
-  /**
-   *
-   * @return {boolean}
-   */
-  get closed() {
-    return this._closed
-  }
-
-  /**
-   *
-   * @return {string}
-   */
-  get tagName() {
-    return this._tag
-  }
-
-  /**
-   *
-   * @return {NamedNodeMap}
-   */
-  get attributes() {
-    return this._attrs
-  }
-
-  /**
-   *
-   * @return {number}
-   */
-  get nodeType() {
-    return this._type
-  }
 
   /**
    *
    * @return {Node}
    */
   get nextSibling() {
-    return this._parent._children[this._index + 1]
+    return this.parentElement.childNodes[this._index + 1]
   }
 
   /**
@@ -255,7 +189,7 @@ class Node {
    * @return {Node}
    */
   get prevSibling() {
-    return this._parent._children[this._index - 1]
+    return this.parentElement.childNodes[this._index - 1]
   }
 
   /**
@@ -275,26 +209,17 @@ class Node {
     return prev.prevSibling
   }
 
-  /**
-   *
-   * @return {Node}
-   */
-  get parent() {
-    return this._parent
-  }
-
-
   get attrsString() {
-    if (!this._attrs.length) {
+    if (!this.attributes.length) {
       return ''
     }
-    return Array.from(this._attrs).map(attribute => {
+    return Array.from(this.attributes).map(attribute => {
       return `${attribute.name}="${attribute.value}"`
     }).join(' ')
   }
 
   get isElement() {
-    return this._type === Node.ELEMENT_NODE
+    return this.nodeType === Node.ELEMENT_NODE
   }
 }
 
@@ -444,7 +369,7 @@ function parse(content) {
       }
 
       // 添加为兄弟元素
-      currentNode.parent.appendChild(node)
+      currentNode.parentElement.appendChild(node)
       // 自闭合元素没有下级
       if (entity.state === 'open') {
         currentNode = node
@@ -467,7 +392,7 @@ function parse(content) {
 
     // 元素结束
     currentNode.close(entity)
-    currentNode = currentNode.parent
+    currentNode = currentNode.parentElement
   }
   return tree.childNodes
 }
