@@ -1,6 +1,6 @@
 # wet
 
-`wet`: `WEb Template`
+`wet` is short of `WEb Template`
 
 `wet` is a Server web template engine running on NodeJS, with no 3rd-part dependency.
 
